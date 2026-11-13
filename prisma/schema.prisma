@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CITIZEN
+  MODERATOR
+  ADMIN
+}
+
+enum OccurrenceStatus {
+  PENDING
+  CONCLUDED
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  name         String
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  role         UserRole   @default(CITIZEN)
+
+  occurrences  Occurrence[]
+  followUps    FollowUp[]
+
+  @@map("users")
+}
+
+model Region {
+  id          Int          @id @default(autoincrement())
+  name        String
+  isActive    Boolean      @default(true) @map("is_active")
+
+  occurrences Occurrence[]
+  followUps   FollowUp[]
+
+  @@map("regions")
+}
+
+model Category {
+  id          Int          @id @default(autoincrement())
+  name        String
+  isActive    Boolean      @default(true) @map("is_active")
+
+  occurrences Occurrence[]
+  followUps   FollowUp[]
+
+  @@map("categories")
+}
+
+model Occurrence {
+  id          Int      @id @default(autoincrement())
+  status      OccurrenceStatus   @default(CONCLUDED)
+  description String   @db.Text
+  cover       String?
+  latitude    Float
+  longitude   Float
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  createdBy   Int      @map("created_by")
+  author      User     @relation(fields: [createdBy], references: [id])
+
+  categoryId  Int      @map("category_id")
+  category    Category @relation(fields: [categoryId], references: [id])
+
+  regionId    Int      @map("region_id")
+  region      Region   @relation(fields: [regionId], references: [id])
+
+  followUps   FollowUp[]
+
+  @@map("occurrences")
+}
+
+model FollowUp {
+  id           Int         @id @default(autoincrement())
+
+  userId       Int         @map("user_id")
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  regionId     Int?        @map("region_id")
+  region       Region?     @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  categoryId   Int?        @map("category_id")
+  category     Category?   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  occurrenceId Int?        @map("occurrence_id")
+  occurrence   Occurrence? @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+
+  @@map("follow_ups")
+}
