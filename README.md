@@ -31,3 +31,19 @@ O desenvolvimento adota metodologias ágeis (**Scrum**, **Kanban** e **XP**), al
 * **Gestão e Controle de Versão:** `Git` e `Github`
 * **Apoio de IAs e Ferramentas Auxiliares:** `Gemini`
 
+## Configuração do ambiente
+
+O projeto usa Node.js 24, indicado em `.nvmrc`. Com o nvm instalado, execute na raiz do projeto:
+
+```bash
+nvm install
+nvm use
+npm ci
+```
+
+Para executar os testes:
+
+```bash
+npm test
+```
+

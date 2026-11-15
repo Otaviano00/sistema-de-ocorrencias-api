@@ -5,6 +5,9 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24 <25"
+  },
   "type": "module",
   "scripts": {
     "build": "nest build",
@@ -12,6 +15,8 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "seed": "node --env-file=.env --import tsx prisma/seed.ts",
     "start": "nest start",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
@@ -24,7 +29,9 @@
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
+    "@nestjs/config": "^12.1.1",
     "@nestjs/core": "^12.0.1",
+    "@nestjs/http-client": "^0.0.3",
     "@nestjs/platform-express": "^12.0.1",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
@@ -41,6 +48,7 @@
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.2",
     "dotenv": "^18.0.10",
+    "msw": "^2.15.0",
     "oxlint": "^1.58.0",
     "oxlint-tsgolint": "^7.0.2001",
     "prettier": "^3.4.2",
