@@ -2,33 +2,33 @@ import { Test } from '@nestjs/testing';
 import { vi, type Mock } from 'vitest';
 import { NotificationService } from './notification.service.js';
 import { UserService } from '../user/user.service.js';
-import { ResendEmailSender } from './email/resendEmailSender.service.js';
+import { EmailService } from '../email/email.service.js';
 
 describe('NotificationService', () => {
   let service: NotificationService;
 
-  let users: {
+  let userService: {
     lookupEmail: Mock<UserService['lookupEmail']>;
   };
 
-  let emailSender: {
-    send: Mock<ResendEmailSender['send']>;
+  let emailService: {
+    sendEmail: Mock<EmailService['sendEmail']>;
   };
 
   beforeEach(async () => {
-    users = {
+    userService = {
       lookupEmail: vi.fn<UserService['lookupEmail']>(),
     };
 
-    emailSender = {
-      send: vi.fn<ResendEmailSender['send']>(),
+    emailService = {
+      sendEmail: vi.fn<EmailService['sendEmail']>(),
     };
 
     const module = await Test.createTestingModule({
       providers: [
         NotificationService,
-        { provide: UserService, useValue: users },
-        { provide: ResendEmailSender, useValue: emailSender },
+        { provide: UserService, useValue: userService },
+        { provide: EmailService, useValue: emailService },
       ],
     }).compile();
 
@@ -36,15 +36,16 @@ describe('NotificationService', () => {
   });
 
   it('should send the notification to the user email', async () => {
-    users.lookupEmail.mockResolvedValue('usuario@exemplo.com');
-    emailSender.send.mockResolvedValue(undefined);
+    userService.lookupEmail.mockResolvedValue('usuario@exemplo.com');
+    emailService.sendEmail.mockResolvedValue(undefined);
 
-    await service.sendNotification(42, 'Ocorrência atualizada');
+    await service.sendNotification(42, 'Notification', 'Ocorrência atualizada');
 
-    expect(users.lookupEmail).toHaveBeenCalledWith(42);
-    expect(users.lookupEmail).toHaveBeenCalledOnce();
-    expect(emailSender.send).toHaveBeenCalledWith(
+    expect(userService.lookupEmail).toHaveBeenCalledWith(42);
+    expect(userService.lookupEmail).toHaveBeenCalledOnce();
+    expect(emailService.sendEmail).toHaveBeenCalledWith(
       'usuario@exemplo.com',
+      'Notification',
       'Ocorrência atualizada',
     );
   });
