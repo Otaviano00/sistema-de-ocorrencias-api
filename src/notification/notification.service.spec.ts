@@ -1,53 +1,52 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+import { vi, type Mock } from 'vitest';
 import { NotificationService } from './notification.service.js';
 import { UserService } from '../user/user.service.js';
-import { BaseEmailSender } from './email/baseEmailSender.service.js';
+import { ResendEmailSender } from './email/resendEmailSender.service.js';
 
 describe('NotificationService', () => {
   let service: NotificationService;
 
+  let users: {
+    lookupEmail: Mock<UserService['lookupEmail']>;
+  };
+
+  let emailSender: {
+    send: Mock<ResendEmailSender['send']>;
+  };
+
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [NotificationService],
-    }).compile();
-
-    service = module.get<NotificationService>(NotificationService);
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
-  it('should send a notification to the user email', async () => {
-    const users = {
-      lookupEmail: vi
-        .fn<UserService['lookupEmail']>()
-        .mockResolvedValue('usuario@exemplo.com'),
+    users = {
+      lookupEmail: vi.fn<UserService['lookupEmail']>(),
     };
 
-    const emailSender = {
-      send: vi
-        .fn<BaseEmailSender['send']>()
-        .mockResolvedValue(undefined),
+    emailSender = {
+      send: vi.fn<ResendEmailSender['send']>(),
     };
 
     const module = await Test.createTestingModule({
       providers: [
         NotificationService,
         { provide: UserService, useValue: users },
-        { provide: BaseEmailSender, useValue: emailSender },
+        { provide: ResendEmailSender, useValue: emailSender },
       ],
     }).compile();
 
-    const service = module.get<NotificationService>(NotificationService);
+    service = module.get(NotificationService);
+  });
 
-    await service.sendNotification(42, 'Sua ocorrência foi atualizada');
+  it('should send the notification to the user email', async () => {
+    users.lookupEmail.mockResolvedValue('usuario@exemplo.com');
+    emailSender.send.mockResolvedValue(undefined);
+
+    await service.sendNotification(42, 'Ocorrência atualizada');
 
     expect(users.lookupEmail).toHaveBeenCalledWith(42);
-    expect(emailSender.send).toHaveBeenCalledOnce();
+    expect(users.lookupEmail).toHaveBeenCalledOnce();
     expect(emailSender.send).toHaveBeenCalledWith(
       'usuario@exemplo.com',
-      'Sua ocorrência foi atualizada',
+      'Ocorrência atualizada',
     );
   });
+
 });
