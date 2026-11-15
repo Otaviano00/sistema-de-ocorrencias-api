@@ -33,6 +33,9 @@ O desenvolvimento adota metodologias ágeis (**Scrum**, **Kanban** e **XP**), al
 
 ## Configuração do ambiente
 
+O [contrato mínimo de mapas](docs/contratos-api.md) descreve a entrada, a resposta
+normalizada e as falhas previstas para a integração da BASE-MAPA.
+
 O projeto usa Node.js 24, indicado em `.nvmrc`. Com o nvm instalado, execute na raiz do projeto:
 
 ```bash
