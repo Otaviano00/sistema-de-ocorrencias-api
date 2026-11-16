@@ -61,4 +61,13 @@ describe('Nominatim integration', () => {
       lat: '-15.7939', lon: '-47.8828', format: 'jsonv2', addressdetails: '1', 'accept-language': 'pt-BR', zoom: '18', layer: 'address',
     });
   });
+
+  it.each([
+    [{ lat: '0', lon: '0' }, { displayAddress: null, neighborhood: null, municipality: null, state: null, stateCode: null, countryCode: null }],
+    [{ ...body, address: { neighbourhood: ' Vizinhança ', town: 'Cidade' } }, { neighborhood: { name: 'Vizinhança', sourceField: 'neighbourhood' }, municipality: 'Cidade' }],
+    [{ ...body, address: { suburb: 123, city: ' ', village: 'Vila' } }, { neighborhood: null, municipality: 'Vila' }],
+  ])('normalizes a partial address without inventing missing fields: %j', async (data, location) => {
+    server.use(http.get(endpoint, () => HttpResponse.json(data)));
+    await expect(service.reverseGeocode(coordinates)).resolves.toMatchObject({ success: true, location });
+  });
 });
