@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { MapProvider } from './map.provider.js';
 import type { Coordinates, MapLookupResult } from './maps.contract.js';
 
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class MapasService {
-  private readonly cache = new Map<string, MapLookupResult>();
+  private readonly cache = new Map<string, { result: MapLookupResult; expiresAt: number }>();
 
   constructor(private readonly provider: MapProvider) {}
 
@@ -17,9 +19,10 @@ export class MapasService {
     }
     const key = `${coordinates.latitude},${coordinates.longitude}`;
     const cached = this.cache.get(key);
-    if (cached) return cached;
+    if (cached && cached.expiresAt > Date.now()) return cached.result;
+    this.cache.delete(key);
     const result = await this.provider.reverseGeocode(coordinates);
-    if (result.success) this.cache.set(key, result);
+    if (result.success) this.cache.set(key, { result, expiresAt: Date.now() + CACHE_TTL_MS });
     return result;
   }
 }
