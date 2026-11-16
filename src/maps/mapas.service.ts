@@ -4,6 +4,8 @@ import type { Coordinates, MapLookupResult } from './maps.contract.js';
 
 @Injectable()
 export class MapasService {
+  private readonly cache = new Map<string, MapLookupResult>();
+
   constructor(private readonly provider: MapProvider) {}
 
   async reverseGeocode(coordinates: Coordinates): Promise<MapLookupResult> {
@@ -13,6 +15,11 @@ export class MapasService {
     ) {
       return { success: false, code: 'INVALID_COORDINATES' };
     }
-    return this.provider.reverseGeocode(coordinates);
+    const key = `${coordinates.latitude},${coordinates.longitude}`;
+    const cached = this.cache.get(key);
+    if (cached) return cached;
+    const result = await this.provider.reverseGeocode(coordinates);
+    if (result.success) this.cache.set(key, result);
+    return result;
   }
 }
