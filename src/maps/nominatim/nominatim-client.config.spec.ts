@@ -20,4 +20,11 @@ describe('NominatimClientConfig', () => {
       timeout, retry: false, redirect: 'error', throwOnHttpError: true,
     });
   });
+
+  it.each([
+    { NOMINATIM_USER_AGENT: ' ' }, { NOMINATIM_USER_AGENT: 'agent\r\nHeader: value' },
+    { NOMINATIM_TIMEOUT_MS: 0 }, { NOMINATIM_TIMEOUT_MS: -1 }, { NOMINATIM_TIMEOUT_MS: 'invalid' },
+  ])('rejects invalid identification or timeout: %j', (values) => {
+    expect(() => createConfig(values).createHttpClientOptions()).toThrow();
+  });
 });
