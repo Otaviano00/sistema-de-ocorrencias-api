@@ -126,4 +126,20 @@ describe('Nominatim integration', () => {
       await isolated.close();
     }
   });
+
+  it('spaces uncached requests by 1.1 seconds while allowing cached responses', async () => {
+    let calls = 0;
+    server.use(http.get(endpoint, () => {
+      calls++;
+      return HttpResponse.json(body);
+    }));
+    await service.reverseGeocode(coordinates);
+    await expect(service.reverseGeocode(coordinates)).resolves.toMatchObject({ success: true });
+    now += 1099;
+    await expect(service.reverseGeocode({ latitude: 0, longitude: 0 })).resolves.toEqual(unavailable);
+    expect(calls).toBe(1);
+    now += 1;
+    await expect(service.reverseGeocode({ latitude: 0, longitude: 0 })).resolves.toMatchObject({ success: true });
+    expect(calls).toBe(2);
+  });
 });
