@@ -160,4 +160,26 @@ describe('Nominatim integration', () => {
     expect(second).toEqual(unavailable);
     expect(calls).toBe(1);
   });
+
+  it.each([
+    { status: 403, header: null, pause: 60_000 },
+    { status: 429, header: '120', pause: 120_000 },
+    { status: 503, header: 'date', pause: 120_000 },
+    { status: 429, header: 'invalid', pause: 60_000 },
+  ])('pauses after a refusal and honors Retry-After: %j', async ({ status, header, pause }) => {
+    let calls = 0;
+    server.use(http.get(endpoint, () => {
+      calls++;
+      const headers = new Headers();
+      if (header) headers.set('Retry-After', header === 'date' ? new Date(now + pause).toUTCString() : header);
+      return HttpResponse.json({ error: 'Failed' }, { status, headers });
+    }));
+    await service.reverseGeocode(coordinates);
+    now += pause - 1;
+    await expect(service.reverseGeocode(coordinates)).resolves.toEqual(unavailable);
+    expect(calls).toBe(1);
+    now += 1;
+    await service.reverseGeocode(coordinates);
+    expect(calls).toBe(2);
+  });
 });
