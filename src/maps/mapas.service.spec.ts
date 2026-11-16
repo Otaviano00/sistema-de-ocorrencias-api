@@ -41,4 +41,21 @@ describe('MapasService', () => {
     await service.reverseGeocode(input);
     expect(provider.reverseGeocode).toHaveBeenCalledExactlyOnceWith(input);
   });
+
+  it('reuses successful responses for identical coordinates', async () => {
+    await service.reverseGeocode(coordinates);
+    await expect(service.reverseGeocode(coordinates)).resolves.toEqual(success);
+    expect(provider.reverseGeocode).toHaveBeenCalledTimes(1);
+    await service.reverseGeocode({ ...coordinates, latitude: -15.7939001 });
+    expect(provider.reverseGeocode).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['LOCATION_NOT_FOUND', 'MAP_PROVIDER_UNAVAILABLE'] as const)(
+    'does not cache %s', async (code) => {
+      provider.reverseGeocode.mockResolvedValue({ success: false, code });
+      await service.reverseGeocode(coordinates);
+      await service.reverseGeocode(coordinates);
+      expect(provider.reverseGeocode).toHaveBeenCalledTimes(2);
+    },
+  );
 });
