@@ -6,7 +6,7 @@ import type { Coordinates, MapLookupResult } from './maps.contract.js';
 export class MapasService {
   constructor(private readonly provider: MapProvider) {}
 
-  async reverseGeocode(_coordinates: Coordinates): Promise<MapLookupResult> {
-    return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
+  async reverseGeocode(coordinates: Coordinates): Promise<MapLookupResult> {
+    return this.provider.reverseGeocode(coordinates);
   }
 }
