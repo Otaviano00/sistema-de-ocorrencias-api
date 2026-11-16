@@ -15,6 +15,11 @@ function isNotFound(value: unknown): boolean {
   return isRecord(value) && text(value.error)?.toLowerCase() === 'unable to geocode';
 }
 
+function validCoordinate(value: unknown, limit: number): boolean {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) return false;
+  return Number.isFinite(Number(value)) && Math.abs(Number(value)) <= limit;
+}
+
 @Injectable()
 export class NominatimProvider extends MapProvider {
   constructor(@InjectHttpClient('nominatim') private readonly client: HttpClient) {
@@ -23,11 +28,18 @@ export class NominatimProvider extends MapProvider {
 
   async reverseGeocode(coordinates: Coordinates): Promise<MapLookupResult> {
     try {
-    const response = await this.client.get<Record<string, unknown>>('', {
+    const response = await this.client.get<unknown>('', {
       responseType: 'json',
       query: { lat: coordinates.latitude, lon: coordinates.longitude, format: 'jsonv2', addressdetails: 1, 'accept-language': 'pt-BR', zoom: 18, layer: 'address' },
     });
     if (isNotFound(response.data)) return { success: false, code: 'LOCATION_NOT_FOUND' };
+    if (
+      !isRecord(response.data) || 'error' in response.data ||
+      !validCoordinate(response.data.lat, 90) || !validCoordinate(response.data.lon, 180) ||
+      (response.data.address !== undefined && !isRecord(response.data.address))
+    ) {
+      return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
+    }
     const address = isRecord(response.data.address) ? response.data.address : {};
     const suburb = text(address.suburb);
     const nearby = text(address.neighbourhood);
