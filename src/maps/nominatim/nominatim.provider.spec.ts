@@ -142,4 +142,22 @@ describe('Nominatim integration', () => {
     await expect(service.reverseGeocode({ latitude: 0, longitude: 0 })).resolves.toMatchObject({ success: true });
     expect(calls).toBe(2);
   });
+
+  it('blocks overlapping requests even when the first takes longer than the interval', async () => {
+    let complete!: () => void;
+    let calls = 0;
+    const pending = new Promise<void>((resolve) => { complete = resolve; });
+    server.use(http.get(endpoint, async () => {
+      calls++;
+      if (calls === 1) await pending;
+      return HttpResponse.json(body);
+    }));
+    const first = service.reverseGeocode(coordinates);
+    now += 2000;
+    const second = await service.reverseGeocode({ latitude: 0, longitude: 0 });
+    complete();
+    await expect(first).resolves.toMatchObject({ success: true });
+    expect(second).toEqual(unavailable);
+    expect(calls).toBe(1);
+  });
 });
