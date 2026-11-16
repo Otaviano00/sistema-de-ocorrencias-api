@@ -1,7 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthService } from './auth.service';
+import { AuthService } from './auth.service.js';
 
 vi.mock('bcrypt');
 
