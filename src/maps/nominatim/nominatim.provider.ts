@@ -3,6 +3,8 @@ import { HttpClient, HttpClientError, HttpResponseError, InjectHttpClient } from
 import { MapProvider } from '../map.provider.js';
 import type { Coordinates, MapLookupResult } from '../maps.contract.js';
 
+const REQUEST_INTERVAL_MS = 1100;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -22,11 +24,15 @@ function validCoordinate(value: unknown, limit: number): boolean {
 
 @Injectable()
 export class NominatimProvider extends MapProvider {
+  private nextRequestAt = 0;
+
   constructor(@InjectHttpClient('nominatim') private readonly client: HttpClient) {
     super();
   }
 
   async reverseGeocode(coordinates: Coordinates): Promise<MapLookupResult> {
+    if (Date.now() < this.nextRequestAt) return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
+    this.nextRequestAt = Date.now() + REQUEST_INTERVAL_MS;
     try {
     const response = await this.client.get<unknown>('', {
       responseType: 'json',
