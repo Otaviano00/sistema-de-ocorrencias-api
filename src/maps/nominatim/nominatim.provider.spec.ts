@@ -79,4 +79,9 @@ describe('Nominatim integration', () => {
     server.use(http.get(endpoint, () => HttpResponse.json({ ...body, address })));
     await expect(service.reverseGeocode(coordinates)).resolves.toMatchObject({ success: true, location: { neighborhood } });
   });
+
+  it.each([200, 404])('recognizes no coverage with HTTP %s', async (status) => {
+    server.use(http.get(endpoint, () => HttpResponse.json({ error: 'Unable to geocode' }, { status })));
+    await expect(service.reverseGeocode(coordinates)).resolves.toEqual({ success: false, code: 'LOCATION_NOT_FOUND' });
+  });
 });
