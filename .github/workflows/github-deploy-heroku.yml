@@ -13,8 +13,6 @@ on:
         type: choice
         options:
           - PRD
-          - HML
-          - DEV
       branch:
         description: 'Branch para fazer o deploy'
         required: true
@@ -24,7 +22,6 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # Usa o environment selecionado manualmente ou 'PRD' caso tenha sido acionado por push na main
     environment:
       name: ${{ github.event.inputs.environment || 'PRD' }}
       url: ${{ vars.APP_URL || 'https://api.otav.com.br' }}
@@ -37,18 +34,10 @@ jobs:
       - name: Code checkout
         uses: actions/checkout@v4
         with:
-          # Faz checkout da branch escolhida no input ou da branch do push
           ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Configure Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Login to Heroku Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: registry.heroku.com
-          username: _
-          password: ${{ secrets.HEROKU_API_KEY }}
 
       - name: Build with Cache
         uses: docker/build-push-action@v6
@@ -64,12 +53,18 @@ jobs:
 
       - name: Push & Release on Heroku
         run: |
-          docker push ${{ env.IMAGE_TAG }}
           IMAGE_ID=$(docker inspect ${{ env.IMAGE_TAG }} --format='{{.Id}}')
           if [ -z "$IMAGE_ID" ]; then
             echo "Erro: Não foi possível obter o ID da imagem."
             exit 1
           fi
+
+          # Converte explicitamente o manifesto OCI para Docker V2 Schema 2 (--format v2s2) exigido pelo Heroku
+          skopeo copy --format v2s2 \
+            --dest-creds="_:${{ secrets.HEROKU_API_KEY }}" \
+            docker-daemon:${{ env.IMAGE_TAG }}:latest \
+            docker://${{ env.IMAGE_TAG }}:latest
+
           curl --fail-with-body --show-error -X PATCH https://api.heroku.com/apps/${{ env.HEROKU_APP_NAME }}/formation \
             -d "{
               \"updates\": [
