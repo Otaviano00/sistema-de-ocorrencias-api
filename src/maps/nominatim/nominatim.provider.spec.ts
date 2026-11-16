@@ -1,0 +1,64 @@
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { HttpClientModule } from '@nestjs/http-client';
+import { Test, type TestingModule } from '@nestjs/testing';
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MapsModule } from '../maps.module.js';
+import { MapasService } from '../mapas.service.js';
+
+const endpoint = 'https://nominatim.test/reverse';
+const coordinates = { latitude: -15.7939, longitude: -47.8828 };
+const body = {
+  lat: '-15.8', lon: '-47.9', display_name: 'Endereço de exemplo',
+  address: { suburb: ' Bairro de exemplo ', city: 'Brasília', state: 'Distrito Federal', 'ISO3166-2-lvl4': 'BR-DF', country_code: 'BR' },
+};
+const server = setupServer();
+
+describe('Nominatim integration', () => {
+  let module: TestingModule;
+  let service: MapasService;
+  let now: number;
+
+  beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+  afterAll(() => server.close());
+  beforeEach(async () => {
+    now = 1_800_000_000_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    module = await Test.createTestingModule({
+      imports: [ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }), HttpClientModule.forRoot({ retry: 3 }), MapsModule],
+      providers: [{ provide: 'consumer', useFactory: (maps: MapasService) => maps, inject: [MapasService] }],
+    }).overrideProvider(ConfigService).useValue(new ConfigService({
+      NOMINATIM_API_URL: endpoint, NOMINATIM_USER_AGENT: 'zelar-api-test/1.0',
+    })).compile();
+    await module.init();
+    service = module.get<MapasService>('consumer');
+  });
+  afterEach(async () => {
+    await module?.close();
+    server.resetHandlers();
+    vi.restoreAllMocks();
+  });
+
+  it('queries with identification and parameters, normalizing the result without replacing GPS', async () => {
+    let requestedUrl: URL | undefined;
+    let userAgent: string | null = null;
+    server.use(http.get(endpoint, ({ request }) => {
+      requestedUrl = new URL(request.url);
+      userAgent = request.headers.get('user-agent');
+      return HttpResponse.json(body);
+    }));
+    await expect(service.reverseGeocode(coordinates)).resolves.toEqual({
+      success: true,
+      location: {
+        coordinates, provider: 'nominatim', displayAddress: body.display_name,
+        neighborhood: { name: 'Bairro de exemplo', sourceField: 'suburb' },
+        municipality: 'Brasília', state: 'Distrito Federal', stateCode: 'BR-DF', countryCode: 'br',
+      },
+    });
+    expect(userAgent).toBe('zelar-api-test/1.0');
+    expect(Object.fromEntries(requestedUrl!.searchParams)).toEqual({
+      lat: '-15.7939', lon: '-47.8828', format: 'jsonv2', addressdetails: '1', 'accept-language': 'pt-BR', zoom: '18', layer: 'address',
+    });
+  });
+});
