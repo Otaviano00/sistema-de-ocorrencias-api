@@ -4,6 +4,7 @@ import { MapProvider } from '../map.provider.js';
 import type { Coordinates, MapLookupResult } from '../maps.contract.js';
 
 const REQUEST_INTERVAL_MS = 1100;
+const DEFAULT_COOLDOWN_MS = 60_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -62,13 +63,29 @@ export class NominatimProvider extends MapProvider {
       },
     };
     } catch (error) {
-      if (error instanceof HttpResponseError && error.status === 404 && isNotFound(error.body)) {
-        return { success: false, code: 'LOCATION_NOT_FOUND' };
+      if (error instanceof HttpResponseError) {
+        if (error.status === 404 && isNotFound(error.body)) {
+          return { success: false, code: 'LOCATION_NOT_FOUND' };
+        }
+        if ([403, 429, 503].includes(error.status)) this.applyCooldown(error.headers);
       }
       if (error instanceof HttpClientError) return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
       throw error;
     } finally {
       this.busy = false;
     }
+  }
+
+  private applyCooldown(headers: Headers): void {
+    const retryAfter = headers.get('retry-after');
+    const seconds = retryAfter === null ? NaN : Number(retryAfter);
+    const deadline = Number.isFinite(seconds) && seconds >= 0
+      ? Date.now() + seconds * 1000
+      : Date.parse(retryAfter ?? '');
+    this.nextRequestAt = Math.max(
+      this.nextRequestAt,
+      Date.now() + DEFAULT_COOLDOWN_MS,
+      Number.isFinite(deadline) ? deadline : 0,
+    );
   }
 }
