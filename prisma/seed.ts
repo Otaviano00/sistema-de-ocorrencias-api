@@ -20,7 +20,7 @@ async function clearDatabase() {
 async function seedUsers() {
     console.log("Criando usuarios...");
     
-    const defaultPasswordHash = "$scrypt$ln=17,r=8,p=1$iIdYpVzpl+g0OgZq0tDKTw$vwRKyr9NmIOx4y12lSuLy0mAa4R7Hl/C2iGyFOZ8axU"; //pwd 
+    const defaultPasswordHash = "$2b$10$4uQMaoEtvykEFwcu6eMm8uonu09LpWkdp59mkXyYzosuNEWGdC/o6"; //pwd 
 
     const adminUser = await prisma.user.create({
         data: {
