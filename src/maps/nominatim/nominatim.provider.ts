@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { HttpClient, InjectHttpClient } from '@nestjs/http-client';
+import { HttpClient, HttpResponseError, InjectHttpClient } from '@nestjs/http-client';
 import { MapProvider } from '../map.provider.js';
 import type { Coordinates, MapLookupResult } from '../maps.contract.js';
 
@@ -11,6 +11,10 @@ function text(value: unknown): string | null {
   return typeof value === 'string' ? value.trim() || null : null;
 }
 
+function isNotFound(value: unknown): boolean {
+  return isRecord(value) && text(value.error)?.toLowerCase() === 'unable to geocode';
+}
+
 @Injectable()
 export class NominatimProvider extends MapProvider {
   constructor(@InjectHttpClient('nominatim') private readonly client: HttpClient) {
@@ -18,10 +22,12 @@ export class NominatimProvider extends MapProvider {
   }
 
   async reverseGeocode(coordinates: Coordinates): Promise<MapLookupResult> {
+    try {
     const response = await this.client.get<Record<string, unknown>>('', {
       responseType: 'json',
       query: { lat: coordinates.latitude, lon: coordinates.longitude, format: 'jsonv2', addressdetails: 1, 'accept-language': 'pt-BR', zoom: 18, layer: 'address' },
     });
+    if (isNotFound(response.data)) return { success: false, code: 'LOCATION_NOT_FOUND' };
     const address = isRecord(response.data.address) ? response.data.address : {};
     const suburb = text(address.suburb);
     const nearby = text(address.neighbourhood);
@@ -35,5 +41,11 @@ export class NominatimProvider extends MapProvider {
         state: text(address.state), stateCode: text(address['ISO3166-2-lvl4']), countryCode: text(address.country_code)?.toLowerCase() ?? null,
       },
     };
+    } catch (error) {
+      if (error instanceof HttpResponseError && error.status === 404 && isNotFound(error.body)) {
+        return { success: false, code: 'LOCATION_NOT_FOUND' };
+      }
+      throw error;
+    }
   }
 }
