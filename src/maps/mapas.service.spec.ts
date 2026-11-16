@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MapasService } from './mapas.service.js';
 import type { Coordinates, MapLookupResult } from './maps.contract.js';
 
@@ -19,6 +19,8 @@ describe('MapasService', () => {
     provider.reverseGeocode.mockReset().mockResolvedValue(success);
     service = new MapasService(provider);
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   it('returns the provider result for the requested coordinates', async () => {
     await expect(service.reverseGeocode(coordinates)).resolves.toEqual(success);
@@ -47,6 +49,18 @@ describe('MapasService', () => {
     await expect(service.reverseGeocode(coordinates)).resolves.toEqual(success);
     expect(provider.reverseGeocode).toHaveBeenCalledTimes(1);
     await service.reverseGeocode({ ...coordinates, latitude: -15.7939001 });
+    expect(provider.reverseGeocode).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes a successful response after 24 hours', async () => {
+    const start = 1_800_000_000_000;
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(start);
+    await service.reverseGeocode(coordinates);
+    clock.mockReturnValue(start + 24 * 60 * 60 * 1000 - 1);
+    await service.reverseGeocode(coordinates);
+    expect(provider.reverseGeocode).toHaveBeenCalledTimes(1);
+    clock.mockReturnValue(start + 24 * 60 * 60 * 1000);
+    await service.reverseGeocode(coordinates);
     expect(provider.reverseGeocode).toHaveBeenCalledTimes(2);
   });
 
