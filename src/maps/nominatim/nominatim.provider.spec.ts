@@ -1,7 +1,7 @@
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { HttpClientModule } from '@nestjs/http-client';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MapsModule } from '../maps.module.js';
@@ -14,6 +14,7 @@ const body = {
   address: { suburb: ' Bairro de exemplo ', city: 'Brasília', state: 'Distrito Federal', 'ISO3166-2-lvl4': 'BR-DF', country_code: 'BR' },
 };
 const server = setupServer();
+const unavailable = { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
 
 describe('Nominatim integration', () => {
   let module: TestingModule;
@@ -91,5 +92,38 @@ describe('Nominatim integration', () => {
   ].map(data => ({ data })))('rejects malformed upstream responses: %j', async ({ data }) => {
     server.use(http.get(endpoint, () => HttpResponse.json(data)));
     await expect(service.reverseGeocode(coordinates)).resolves.toEqual({ success: false, code: 'MAP_PROVIDER_UNAVAILABLE' });
+  });
+
+  it.each([403, 429, 500, 503])('reports HTTP %s without automatic retries', async (status) => {
+    let calls = 0;
+    server.use(http.get(endpoint, () => {
+      calls++;
+      return HttpResponse.json({ error: 'Failed' }, { status });
+    }));
+    await expect(service.reverseGeocode(coordinates)).resolves.toEqual(unavailable);
+    expect(calls).toBe(1);
+  });
+
+  it.each(['network', 'json'])('reports a %s failure as unavailability', async (failure) => {
+    server.use(http.get(endpoint, () => failure === 'network'
+      ? HttpResponse.error()
+      : new HttpResponse('{broken', { headers: { 'Content-Type': 'application/json' } })));
+    await expect(service.reverseGeocode(coordinates)).resolves.toEqual(unavailable);
+  });
+
+  it('applies the configured timeout to a slow response', async () => {
+    server.use(http.get(endpoint, async () => {
+      await delay(100);
+      return HttpResponse.json(body);
+    }));
+    const isolated = await Test.createTestingModule({ imports: [ConfigModule, MapsModule] })
+      .overrideProvider(ConfigService).useValue(new ConfigService({
+        NOMINATIM_API_URL: endpoint, NOMINATIM_USER_AGENT: 'zelar-api-test/1.0', NOMINATIM_TIMEOUT_MS: 20,
+      })).compile();
+    try {
+      await expect(isolated.get(MapasService).reverseGeocode(coordinates)).resolves.toEqual(unavailable);
+    } finally {
+      await isolated.close();
+    }
   });
 });
