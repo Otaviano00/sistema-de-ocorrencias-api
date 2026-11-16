@@ -70,4 +70,13 @@ describe('Nominatim integration', () => {
     server.use(http.get(endpoint, () => HttpResponse.json(data)));
     await expect(service.reverseGeocode(coordinates)).resolves.toMatchObject({ success: true, location });
   });
+
+  it.each([
+    [{ suburb: 'A', neighbourhood: 'B' }, null],
+    [{ suburb: ' Bairro ', neighbourhood: 'bairro' }, { name: 'Bairro', sourceField: 'suburb' }],
+    [{ city_district: 'Distrito' }, null],
+  ])('avoids accepting conflicting or district labels as a neighborhood: %j', async (address, neighborhood) => {
+    server.use(http.get(endpoint, () => HttpResponse.json({ ...body, address })));
+    await expect(service.reverseGeocode(coordinates)).resolves.toMatchObject({ success: true, location: { neighborhood } });
+  });
 });
