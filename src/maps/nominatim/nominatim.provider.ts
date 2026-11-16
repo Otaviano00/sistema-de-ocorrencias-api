@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { HttpClient, HttpResponseError, InjectHttpClient } from '@nestjs/http-client';
+import { HttpClient, HttpClientError, HttpResponseError, InjectHttpClient } from '@nestjs/http-client';
 import { MapProvider } from '../map.provider.js';
 import type { Coordinates, MapLookupResult } from '../maps.contract.js';
 
@@ -57,6 +57,7 @@ export class NominatimProvider extends MapProvider {
       if (error instanceof HttpResponseError && error.status === 404 && isNotFound(error.body)) {
         return { success: false, code: 'LOCATION_NOT_FOUND' };
       }
+      if (error instanceof HttpClientError) return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
       throw error;
     }
   }
