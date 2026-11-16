@@ -84,4 +84,12 @@ describe('Nominatim integration', () => {
     server.use(http.get(endpoint, () => HttpResponse.json({ error: 'Unable to geocode' }, { status })));
     await expect(service.reverseGeocode(coordinates)).resolves.toEqual({ success: false, code: 'LOCATION_NOT_FOUND' });
   });
+
+  it.each([
+    null, [], {}, { error: 'Unexpected error' },
+    { lat: 'invalid', lon: '0' }, { lat: '91', lon: '0' }, { lat: '0', lon: '0', address: [] },
+  ].map(data => ({ data })))('rejects malformed upstream responses: %j', async ({ data }) => {
+    server.use(http.get(endpoint, () => HttpResponse.json(data)));
+    await expect(service.reverseGeocode(coordinates)).resolves.toEqual({ success: false, code: 'MAP_PROVIDER_UNAVAILABLE' });
+  });
 });
