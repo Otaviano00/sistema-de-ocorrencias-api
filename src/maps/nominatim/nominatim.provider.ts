@@ -24,6 +24,7 @@ function validCoordinate(value: unknown, limit: number): boolean {
 
 @Injectable()
 export class NominatimProvider extends MapProvider {
+  private busy = false;
   private nextRequestAt = 0;
 
   constructor(@InjectHttpClient('nominatim') private readonly client: HttpClient) {
@@ -31,7 +32,8 @@ export class NominatimProvider extends MapProvider {
   }
 
   async reverseGeocode(coordinates: Coordinates): Promise<MapLookupResult> {
-    if (Date.now() < this.nextRequestAt) return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
+    if (this.busy || Date.now() < this.nextRequestAt) return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
+    this.busy = true;
     this.nextRequestAt = Date.now() + REQUEST_INTERVAL_MS;
     try {
     const response = await this.client.get<unknown>('', {
@@ -65,6 +67,8 @@ export class NominatimProvider extends MapProvider {
       }
       if (error instanceof HttpClientError) return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
       throw error;
+    } finally {
+      this.busy = false;
     }
   }
 }
