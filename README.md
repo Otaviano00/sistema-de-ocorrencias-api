@@ -42,7 +42,11 @@ O projeto usa Node.js 24, indicado em `.nvmrc`. Com o nvm instalado, execute na 
 nvm install
 nvm use
 npm ci
+npx prisma generate --config prisma7.config.ts
 ```
+
+Para mapas, acrescente ao `.env` as variáveis de [.env.maps.example](.env.maps.example).
+A configuração e os limites estão no [contrato de mapas](docs/contratos-api.md).
 
 Para executar os testes:
 

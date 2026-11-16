@@ -8,13 +8,13 @@ import { MapsModule } from './maps/maps.module.js';
 
 @Module({
   imports: [
-    PrismaModule, 
-    ConfigModule.forRoot({isGlobal: true}),
+    PrismaModule,
+    ConfigModule.forRoot({ isGlobal: true }),
     MapsModule,
     HttpClientModule.forRoot({
       headers: { 'User-Agent': 'zelar-api/1.0' },
       timeout: '10s',
-    }),     
+    }),
   ],
   controllers: [AppController],
   providers: [AppService],

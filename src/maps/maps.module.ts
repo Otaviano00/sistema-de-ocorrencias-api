@@ -7,10 +7,18 @@ import { NominatimClientConfig } from './nominatim/nominatim-client.config.js';
 import { NominatimProvider } from './nominatim/nominatim.provider.js';
 
 @Module({
-  imports: [HttpClientModule.registerAsync({
-    name: 'nominatim', imports: [ConfigModule], useClass: NominatimClientConfig,
-  })],
-  providers: [MapasService, NominatimProvider, { provide: MapProvider, useExisting: NominatimProvider }],
+  imports: [
+    HttpClientModule.registerAsync({
+      name: 'nominatim',
+      imports: [ConfigModule],
+      useClass: NominatimClientConfig,
+    }),
+  ],
+  providers: [
+    MapasService,
+    NominatimProvider,
+    { provide: MapProvider, useExisting: NominatimProvider },
+  ],
   exports: [MapasService],
 })
 export class MapsModule {}

@@ -1,30 +1,20 @@
-# Contrato mínimo de mapas — BASE-MAPA
+# Contrato de mapas — BASE-MAPA
 
-Esta seção define o contrato interno da integração geográfica. Não define ainda
-rotas HTTP, autenticação, cadastro de ocorrências ou o restante da BASE-CONTRATOS.
-Os tipos estão em `src/maps/maps.contract.ts`. Os nomes seguem o padrão em inglês
-do backend; mensagens da interface podem ser apresentadas em português.
+O `MapsModule` exporta `MapasService`, que usa o `MapProvider` injetável.
+A implementação padrão é `NominatimProvider`. Os tipos aprovados estão em
+`src/maps/maps.contract.ts`. Este contrato é interno; endpoints e regras
+territoriais pertencem às HU07.1/HU07.2.
 
-## Operação prevista
-
-O futuro `MapasService` exportado pelo `MapasModule` oferecerá:
+## Entrada e saída
 
 ```ts
 reverseGeocode(coordinates: Coordinates): Promise<MapLookupResult>
 ```
 
-A implementação do serviço e do provedor será feita na próxima etapa. Estes tipos
-não consultam a rede nem validam valores em tempo de execução.
+Recebe coordenadas WGS84 do navegador: latitude em [-90, 90] e longitude em
+[-180, 180], inclusive. Rejeita strings, NaN e infinitos; zero é válido.
 
-Entrada: coordenadas WGS84 obtidas pelo navegador. Latitude e longitude devem ser
-números finitos, respectivamente nos intervalos inclusivos [-90, 90] e [-180, 180].
-Zero é válido. Strings, NaN e infinitos devem ser rejeitados antes da consulta.
-O contrato de serviço não converte strings implicitamente; eventual conversão de
-parâmetros HTTP pertence à camada de entrada da API.
-
-## Resposta de sucesso
-
-Exemplo ilustrativo, sem representar uma consulta real:
+Exemplo ilustrativo, sem consulta real:
 
 ```json
 {
@@ -42,94 +32,85 @@ Exemplo ilustrativo, sem representar uma consulta real:
 }
 ```
 
-- `coordinates` preserva os números recebidos, sem arredondamento. As coordenadas
-  do objeto encontrado pelo provedor não substituem a localização do dispositivo.
-- Todos os campos são presentes; informação ausente é `null`, nunca texto como
-  “Não informado” nem uma string vazia.
-- `neighborhood`, quando presente, contém `name` e `sourceField`, por exemplo
-  `{ "name": "Bairro de exemplo", "sourceField": "suburb" }`.
-  Trata-se de um candidato reportado pelo provedor, não de autorização de cadastro.
-- `provider` identifica a implementação usada sem expor seu JSON original.
+Preserva o GPS original, sem arredondamento nem substituição pelas coordenadas
+do objeto encontrado. Campos ausentes são `null`. Resultados do cache são
+reutilizados e devem ser tratados como somente leitura pelo consumidor.
 
-### Normalização prevista para Nominatim
-
-| Campo interno | Origem |
+| Campo | Origem no Nominatim |
 | --- | --- |
 | `displayAddress` | `display_name` |
-| `municipality` | Primeiro valor não vazio de `city`, `town`, `village`, `municipality` |
+| `municipality` | Primeiro texto não vazio de `city`, `town`, `village`, `municipality` |
 | `state` | `address.state` |
-| `stateCode` | `address['ISO3166-2-lvl4']`, quando disponível |
+| `stateCode` | `address['ISO3166-2-lvl4']` |
 | `countryCode` | `address.country_code`, em minúsculas |
-| `neighborhood` | Candidato de `address.suburb` ou `address.neighbourhood`, com chave de origem preservada |
+| `neighborhood` | `{ name, sourceField }`, usando `suburb` ou `neighbourhood` |
 
-Não usar `city_district`, município ou estado como substituto automático de bairro.
-Se `suburb` e `neighbourhood` trouxerem nomes diferentes após remover espaços nas
-extremidades e ignorar caixa, retornar `neighborhood: null`; se forem iguais,
-usar `suburb`. Um único candidato não vazio pode ser retornado com sua origem.
-Valores que não sejam strings não compõem os campos de endereço.
+Valores não textuais são ignorados. Se os campos de bairro divergirem, ignorando
+caixa e espaços nas extremidades, retorna `null`; se forem iguais, usa `suburb`.
+Não usa `city_district` como bairro. O candidato não comprova atendimento:
+contexto, confiança e região ativa serão verificados nas HUs de regiões.
+O `place_id` do endereço não deve ser usado como identificador do bairro.
 
-**Ter um candidato não comprova identificação confiável.** O critério territorial
-para aceitar esses campos, inclusive no Distrito Federal, precisa ser validado
-com exemplos representativos na HU07.1/HU07.2. O serviço de regiões verificará
-contexto geográfico e região ativa; candidato ausente ou contexto insuficiente
-não devem liberar um cadastro. Esta consulta não informa `isActive` ou `canRegister`.
-
-Não usar o `place_id` nem o identificador OSM do objeto encontrado como identificador
-do bairro. A identidade geográfica da região será definida na HU07.1; o modelo
-`Region` atual ainda não possui município, estado ou referência geográfica.
-
-## Falhas esperadas
+## Falhas
 
 ```json
 { "success": false, "code": "MAP_PROVIDER_UNAVAILABLE" }
 ```
 
-| Código | Significado |
+| Código | Situação |
 | --- | --- |
-| `INVALID_COORDINATES` | Coordenadas inválidas; nenhuma requisição externa deve ocorrer |
-| `LOCATION_NOT_FOUND` | O provedor respondeu validamente que não há resultado para o ponto |
-| `MAP_PROVIDER_UNAVAILABLE` | Timeout, falha de rede, limite externo, erro HTTP inesperado ou resposta inválida |
+| `INVALID_COORDINATES` | Entrada inválida; não consulta o provedor |
+| `LOCATION_NOT_FOUND` | `Unable to geocode` em HTTP 200 ou 404 |
+| `MAP_PROVIDER_UNAVAILABLE` | Timeout, rede, HTTP, resposta inválida ou limite local/externo |
 
-Um endereço válido sem bairro é sucesso com `neighborhood: null`. Não confundir
-essa situação com indisponibilidade externa nem com região não atendida. Erros
-internos inesperados continuam sendo exceções; não devem ser mascarados como
-falhas esperadas. Status HTTP e envelope público serão definidos quando houver
-um endpoint consumidor, sem expor detalhes ou mensagens brutas do provedor.
+Endereço sem bairro é sucesso com `neighborhood: null`. A resposta externa precisa
+ter `lat`/`lon` válidos. `address` pode estar ausente, mas, se presente, deve ser
+um objeto. Erros inesperados continuam sendo exceções; os futuros endpoints
+definirão o envelope HTTP público.
 
-## Provedor e frontend
+## Configuração e limites
 
-A implementação proposta usa a API reverse do Nominatim por um adaptador
-substituível, com `format=jsonv2`, `addressdetails=1`, `accept-language=pt-BR`,
-`zoom=18` e `layer=address`. O serviço público não exige chave de API. Endpoint,
-User-Agent identificando a aplicação e timeout devem ser configuráveis no backend.
-Nenhuma credencial de provedores futuros deve ir para o Angular.
+Acrescente ao `.env` as variáveis de `.env.maps.example`, preservando as demais:
 
-O Nominatim encontra um objeto adequado próximo, não garante o endereço exato
-ou a inclusão do ponto em um bairro. Seu uso público exige limite agregado de
-uma requisição por segundo, identificação, atribuição ao OpenStreetMap, cache e
-possibilidade de trocar de serviço. Não implementar autocomplete ou varreduras.
-Se houver múltiplas instâncias, um limitador em memória por processo não basta.
-Esses mecanismos precisam estar implementados antes de habilitar consultas reais.
+| Variável | Regra |
+| --- | --- |
+| `NOMINATIM_API_URL` | Obrigatória: URL HTTP(S) completa do reverse, sem credenciais, query ou fragmento |
+| `NOMINATIM_USER_AGENT` | Obrigatória: identificação em uma linha; use nome/versão e contato real |
+| `NOMINATIM_TIMEOUT_MS` | Inteiro positivo; padrão 5000 milissegundos |
 
-O Angular pode usar Leaflet para exibir mapas. A geolocalização é obtida pelo
-navegador mediante permissão. O cadastro exige a localização atual e não deve
-reutilizar a seleção manual de ponto do laboratório. Um futuro endpoint poderá
-expor os dados necessários à interface; o contrato interno não cria esse endpoint.
-Tiles e sua atribuição possuem configuração e política próprias.
+O serviço público não exige chave. Para trocar o endpoint compatível, altere o
+ambiente e reinicie a API, sem recompilar. Usa `jsonv2`, `addressdetails=1`,
+`accept-language=pt-BR`, `zoom=18` e `layer=address`, sem retries ou redirects.
 
-## Próximas entregas e verificação
+O cache guarda até 1000 respostas bem-sucedidas por 24 horas, em memória, usando
+coordenadas exatas. Remove a mais antiga ao encher e não armazena falhas. Há
+intervalo de 1,1 segundo e uma única consulta em andamento; outra consulta sem
+cache durante o bloqueio recebe `MAP_PROVIDER_UNAVAILABLE`, sem fila ou
+compartilhamento de consultas pendentes. HTTP 403, 429 e 503 impõem pausa mínima
+de 60 segundos; `Retry-After` pode estendê-la. O cache continua disponível.
 
-- Implementar e exportar `MapasService` e seu provedor substituível no NestJS.
-- Documentar as variáveis de ambiente efetivamente usadas e um exemplo de injeção.
-- Implementar timeout, cache e limitação agregada de consultas, sem fila ilimitada.
-- Testar coordenadas inválidas, endereço completo/parcial, bairro conflitante,
-  ausência de resultado, resposta inválida e falhas externas com mocks.
-- Verificar preservação das coordenadas, cache e limitação sem chamadas públicas.
-- Validar o critério de bairro nas HUs de regiões antes de autorizar cadastros.
+O módulo atende **uma única instância/processo**. Reiniciar limpa cache e limite;
+múltiplas instâncias exigem controle compartilhado ou outro provedor. Leia a
+[política pública](https://operations.osmfoundation.org/policies/nominatim/):
+o limite vale para todos os usuários somados; não usar autocomplete, varreduras
+ou enviar dados pessoais/confidenciais. Para GPS associado a pessoas, use
+instância própria ou provedor com contrato apropriado.
 
-Esta entrega inicia a BASE-MAPA pelo contrato; não conclui a task.
+## Uso e verificação
 
-Referências: [reverse do Nominatim](https://nominatim.org/release-docs/latest/api/Reverse/),
-[formatos e identificadores](https://nominatim.org/release-docs/latest/api/Output/),
-[política do serviço público](https://operations.osmfoundation.org/policies/nominatim/)
-e [política de tiles](https://operations.osmfoundation.org/policies/tiles/).
+O módulo consumidor importa `MapsModule`, injeta `MapasService` pelo construtor
+e chama `reverseGeocode`. Nos testes, substitua `MapProvider` por mock.
+O Angular pode manter Leaflet; GPS e permissão pertencem ao navegador.
+O cadastro não usa seleção manual de ponto. A interface deve atribuir os dados
+[© OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
+Os tiles possuem [política própria](https://operations.osmfoundation.org/policies/tiles/).
+
+```bash
+npm test -- src/maps
+npm run build
+npm run lint
+```
+
+Os testes usam mocks e MSW, sem Nominatim real ou banco. Referências:
+[reverse](https://nominatim.org/release-docs/latest/api/Reverse/) e
+[formatos e identificadores](https://nominatim.org/release-docs/latest/api/Output/).

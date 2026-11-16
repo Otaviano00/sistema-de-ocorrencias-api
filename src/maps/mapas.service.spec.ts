@@ -6,8 +6,14 @@ const coordinates = { latitude: -15.7939, longitude: -47.8828 };
 const success: MapLookupResult = {
   success: true,
   location: {
-    coordinates, provider: 'mock', displayAddress: null, neighborhood: null,
-    municipality: 'Brasília', state: 'Distrito Federal', stateCode: 'BR-DF', countryCode: 'br',
+    coordinates,
+    provider: 'mock',
+    displayAddress: null,
+    neighborhood: null,
+    municipality: 'Brasília',
+    state: 'Distrito Federal',
+    stateCode: 'BR-DF',
+    countryCode: 'br',
   },
 };
 
@@ -24,21 +30,35 @@ describe('MapasService', () => {
 
   it('returns the provider result for the requested coordinates', async () => {
     await expect(service.reverseGeocode(coordinates)).resolves.toEqual(success);
-    expect(provider.reverseGeocode).toHaveBeenCalledExactlyOnceWith(coordinates);
+    expect(provider.reverseGeocode).toHaveBeenCalledExactlyOnceWith(
+      coordinates,
+    );
   });
 
   it.each([
-    { latitude: NaN, longitude: 0 }, { latitude: 0, longitude: Infinity },
-    { latitude: -91, longitude: 0 }, { latitude: 91, longitude: 0 },
-    { latitude: 0, longitude: -181 }, { latitude: 0, longitude: 181 },
-    { latitude: '0', longitude: 0 }, {}, null,
-  ])('rejects invalid coordinates without consulting the provider: %j', async (input) => {
-    await expect(service.reverseGeocode(input as Coordinates)).resolves.toEqual({ success: false, code: 'INVALID_COORDINATES' });
-    expect(provider.reverseGeocode).not.toHaveBeenCalled();
-  });
+    { latitude: NaN, longitude: 0 },
+    { latitude: 0, longitude: Infinity },
+    { latitude: -91, longitude: 0 },
+    { latitude: 91, longitude: 0 },
+    { latitude: 0, longitude: -181 },
+    { latitude: 0, longitude: 181 },
+    { latitude: '0', longitude: 0 },
+    {},
+    null,
+  ])(
+    'rejects invalid coordinates without consulting the provider: %j',
+    async (input) => {
+      await expect(
+        service.reverseGeocode(input as Coordinates),
+      ).resolves.toEqual({ success: false, code: 'INVALID_COORDINATES' });
+      expect(provider.reverseGeocode).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
-    { latitude: 0, longitude: 0 }, { latitude: -90, longitude: -180 }, { latitude: 90, longitude: 180 },
+    { latitude: 0, longitude: 0 },
+    { latitude: -90, longitude: -180 },
+    { latitude: 90, longitude: 180 },
   ])('accepts zero and inclusive boundaries: %j', async (input) => {
     await service.reverseGeocode(input);
     expect(provider.reverseGeocode).toHaveBeenCalledExactlyOnceWith(input);
@@ -75,7 +95,8 @@ describe('MapasService', () => {
   });
 
   it.each(['LOCATION_NOT_FOUND', 'MAP_PROVIDER_UNAVAILABLE'] as const)(
-    'does not cache %s', async (code) => {
+    'does not cache %s',
+    async (code) => {
       provider.reverseGeocode.mockResolvedValue({ success: false, code });
       await service.reverseGeocode(coordinates);
       await service.reverseGeocode(coordinates);
