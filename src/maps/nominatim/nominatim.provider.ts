@@ -25,11 +25,12 @@ export class NominatimProvider extends MapProvider {
     const address = isRecord(response.data.address) ? response.data.address : {};
     const suburb = text(address.suburb);
     const nearby = text(address.neighbourhood);
+    const conflicting = suburb && nearby && suburb.toLowerCase() !== nearby.toLowerCase();
     return {
       success: true,
       location: {
         coordinates: { ...coordinates }, provider: 'nominatim', displayAddress: text(response.data.display_name),
-        neighborhood: suburb ? { name: suburb, sourceField: 'suburb' } : nearby ? { name: nearby, sourceField: 'neighbourhood' } : null,
+        neighborhood: conflicting ? null : suburb ? { name: suburb, sourceField: 'suburb' } : nearby ? { name: nearby, sourceField: 'neighbourhood' } : null,
         municipality: text(address.city) ?? text(address.town) ?? text(address.village) ?? text(address.municipality),
         state: text(address.state), stateCode: text(address['ISO3166-2-lvl4']), countryCode: text(address.country_code)?.toLowerCase() ?? null,
       },
