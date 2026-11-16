@@ -64,6 +64,16 @@ describe('MapasService', () => {
     expect(provider.reverseGeocode).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps at most 1000 cached responses, removing the oldest when full', async () => {
+    for (let index = 0; index < 1001; index++) {
+      await service.reverseGeocode({ latitude: 0, longitude: index / 1000 });
+    }
+    await service.reverseGeocode({ latitude: 0, longitude: 1 });
+    expect(provider.reverseGeocode).toHaveBeenCalledTimes(1001);
+    await service.reverseGeocode({ latitude: 0, longitude: 0 });
+    expect(provider.reverseGeocode).toHaveBeenCalledTimes(1002);
+  });
+
   it.each(['LOCATION_NOT_FOUND', 'MAP_PROVIDER_UNAVAILABLE'] as const)(
     'does not cache %s', async (code) => {
       provider.reverseGeocode.mockResolvedValue({ success: false, code });
