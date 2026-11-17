@@ -6,7 +6,7 @@ import prettierConfig from 'eslint-config-prettier';
 import gts from 'gts';
 
 export default defineConfig([
-  globalIgnores(['dist/', 'coverage/', 'src/generated/', '.scannerwork/']),
+  globalIgnores(['dist/', 'coverage/', 'src/generated/']),
   ...gts,
   {
     files: ['**/*.ts'],

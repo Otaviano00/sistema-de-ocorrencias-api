@@ -1,5 +1,4 @@
 dist
 coverage
 src/generated
-.scannerwork
 package-lock.json

@@ -2,10 +2,9 @@
 # da API. `make` (ou `make help`) lista os alvos.
 .DEFAULT_GOAL := help
 .NOTPARALLEL:
-.PHONY: help up down logs reset seed install tdd refactor sonar
+.PHONY: help up down logs reset seed install tdd refactor
 
 COMPOSE := docker compose
-SONAR_IMAGE := sonarsource/sonar-scanner-cli:12.4.0.4321_8.4.0
 
 # Arquivos gerados nos bind mounts ficam com o dono do usuário do host.
 export HOST_UID := $(shell id -u)
@@ -47,15 +46,5 @@ install: ## Instala pacotes no container api (evita Node do host): make install 
 tdd: ## Vitest em modo watch, sem cobertura (ciclo Red/Green)
 	$(api_exec) npm run test:watch
 
-refactor: ## Prettier + ESLint --fix (gts) + Vitest com cobertura + sonar-scanner
+refactor: ## Prettier + ESLint --fix (gts) + Vitest com cobertura
 	$(api_exec) sh -c 'npm run format && npm run lint:fix && npm run test:cov'
-	@$(MAKE) --no-print-directory sonar
-
-sonar: ## Roda o sonar-scanner (binário local, ou via Docker se SONAR_TOKEN existir)
-	@if command -v sonar-scanner >/dev/null 2>&1; then \
-		sonar-scanner; \
-	elif [ -n "$${SONAR_TOKEN:-}" ]; then \
-		docker run --rm -e SONAR_HOST_URL -e SONAR_TOKEN -v "$(CURDIR):/usr/src" $(SONAR_IMAGE); \
-	else \
-		echo "sonar-scanner indisponível (instale-o ou exporte SONAR_TOKEN/SONAR_HOST_URL): análise ignorada."; \
-	fi
