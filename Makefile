@@ -24,7 +24,7 @@ up: ## Sobe db, api e web (build se preciso) com migrations e seed automáticas
 		|| { echo "Falha ao subir o ambiente. Veja: make logs"; exit 1; }
 	@echo ""
 	@echo "  API: http://$$($(COMPOSE) port api 3000 | sed 's/0.0.0.0/localhost/')"
-	@echo "  Web: http://$$($(COMPOSE) port web 4200 | sed 's/0.0.0.0/localhost/') (primeiro build do Angular leva alguns segundos)"
+	@echo "  Web: http://$$($(COMPOSE) port web 4200 | sed 's/0.0.0.0/localhost/')"
 
 down: ## Para e remove os containers (mantém o volume do banco)
 	$(COMPOSE) down --remove-orphans
