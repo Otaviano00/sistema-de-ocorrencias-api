@@ -1,0 +1,33 @@
+# Imagem de DESENVOLVIMENTO (hot-reload, código via bind mount).
+# A imagem de produção (deploy no Heroku) continua sendo o Dockerfile.
+FROM node:24.22.3-bookworm-slim
+
+# openssl: exigido pelo schema engine do Prisma (migrations).
+# procps: o `nest start --watch` usa `ps` para encerrar o processo antigo no
+# hot-reload; sem ele o servidor anterior segura a porta (EADDRINUSE).
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends openssl procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Alinha o usuário 'node' ao UID/GID do host para que arquivos gerados no bind
+# mount (dist/, coverage/, src/generated/) não fiquem com dono root.
+ARG UID=1000
+ARG GID=1000
+RUN groupmod -o -g "${GID}" node && usermod -o -u "${UID}" -g "${GID}" node
+
+COPY docker/entrypoint.dev.sh /usr/local/bin/api-entrypoint.sh
+RUN chmod 755 /usr/local/bin/api-entrypoint.sh
+
+WORKDIR /app
+RUN chown node:node /app
+USER node
+
+# Só os manifestos entram na imagem: o código chega pelo bind mount do compose.
+COPY --chown=node:node package.json package-lock.json .npmrc ./
+RUN npm ci --no-audit --no-fund && npm cache clean --force
+
+ENV NODE_ENV=development
+EXPOSE 3000
+
+ENTRYPOINT ["api-entrypoint.sh"]
+CMD ["npm", "run", "start:dev"]
