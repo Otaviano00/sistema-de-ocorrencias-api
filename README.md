@@ -119,6 +119,32 @@ O `package.json` e o `package-lock.json` são atualizados na sua máquina. Faça
 
 **SonarQube:** `make refactor` (ou só `make sonar`) usa o `sonar-scanner` instalado na sua máquina. Se ele não existir, mas as variáveis `SONAR_HOST_URL` e `SONAR_TOKEN` estiverem exportadas, a análise roda via Docker. Sem nenhum dos dois, a etapa é pulada com um aviso. A configuração fica em `sonar-project.properties`.
 
+### Integração contínua (GitHub Actions)
+
+O workflow `.github/workflows/ci.yml` roda a cada push na `main` e em todo pull request para a `main`. Se você enviar um novo commit, a execução anterior do mesmo PR é cancelada. O CI **só verifica**: ele não formata nem corrige nada. Por isso, rode `make refactor` antes de abrir o PR.
+
+Ele usa o Node da versão em `.nvmrc` e um PostgreSQL 16 de teste, e confere, nesta ordem:
+
+1. `npm ci`: instala as dependências exatamente como estão no `package-lock.json`.
+2. **Prettier** (`--check`): falha se algum arquivo não estiver formatado.
+3. **ESLint**: falha com qualquer erro **ou aviso** das regras do Google.
+4. **Build** (`npm run build`): falha se houver erro de tipo no TypeScript.
+5. **Migrations e seed**: aplica as migrations no banco de teste e roda a seed duas vezes, para garantir que ela não duplica dados.
+6. **Testes unitários com cobertura** (`coverage/lcov.info`, que fica disponível como artefato `coverage` na página da execução).
+7. **Testes de integração** (`npm run test:e2e`), que sobem a API conectada ao banco.
+8. **SonarQube**: só roda se o secret `SONAR_TOKEN` estiver configurado. Sem ele, o passo é pulado com um aviso e o CI continua verde.
+
+**Para ativar o SonarQube**, um admin do repositório cadastra em *Settings → Secrets and variables → Actions → New repository secret*:
+
+| Secret | Quando é necessário |
+| ------ | ------------------- |
+| `SONAR_TOKEN` | Sempre. É o token gerado no SonarQube/SonarCloud (*My Account → Security*). |
+| `SONAR_HOST_URL` | Só para SonarQube Server (self-hosted), ex.: `https://sonar.suaempresa.com`. No SonarQube Cloud, não precisa. |
+
+> No **SonarQube Cloud**, descomente também a linha `sonar.organization` em `sonar-project.properties` e coloque a chave da sua organização.
+
+PRs vindos de forks não recebem os secrets do repositório, então neles o Sonar é sempre pulado.
+
 ### Onde fica cada configuração
 
 | Ferramenta | Arquivo | Observação |
@@ -129,7 +155,8 @@ O `package.json` e o `package-lock.json` são atualizados na sua máquina. Faça
 | Vitest + cobertura | `vitest.config.ts` | Cobertura V8, relatório em `coverage/lcov.info`. |
 | SonarQube | `sonar-project.properties` | Analisa `src/` e lê `coverage/lcov.info`. |
 | Docker (dev) | `Dockerfile.dev`, `docker-compose.yml`, `docker/entrypoint.dev.sh` | O `Dockerfile` é o da **produção** (Heroku); não use para desenvolvimento. |
-| Versão do Node | `.nvmrc`, `engines` no `package.json` | Node 24. |
+| CI | `.github/workflows/ci.yml` | Verificações de todo PR (veja acima). |
+| Versão do Node | `.nvmrc`, `engines` no `package.json` | Node 24.22.3 (mesma versão das imagens Docker). |
 
 ### Por que usar `make` em vez de `npm` direto na máquina?
 

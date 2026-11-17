@@ -1,0 +1,118 @@
+# CI da API: só verificações (nada é formatado, corrigido ou publicado).
+# Roda em push na main e em todo PR para a main. O SonarQube só roda quando
+# o secret SONAR_TOKEN existe (veja a seção "Integração contínua" do README).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Um novo push no mesmo PR/branch cancela a execução anterior.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Formatação, lint, build e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        # Mesma imagem do docker-compose.yml.
+        image: postgres:16.16-alpine3.24
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ocorrencias_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ocorrencias_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ocorrencias_test?schema=public
+      PRISMA_HIDE_UPDATE_MESSAGE: 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Histórico completo: o Sonar usa o blame para identificar código novo.
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund
+
+      # Necessário antes do lint (regras com tipos) e do build.
+      - name: Gerar Prisma Client
+        run: npx prisma generate --config prisma7.config.ts
+
+      - name: Prettier (check)
+        run: npm run format:check
+
+      - name: ESLint (Google TypeScript Style)
+        run: npm run lint -- --max-warnings=0
+
+      - name: Type-check e build
+        run: npm run build
+
+      - name: Aplicar migrations
+        run: npx prisma migrate deploy --config prisma7.config.ts
+
+      # Roda duas vezes para garantir que a seed continua idempotente
+      # (o entrypoint do Docker depende disso a cada restart).
+      - name: Seed (smoke test de idempotência)
+        run: npm run seed && npm run seed
+
+      - name: Testes unitários com cobertura
+        run: npm run test:cov
+
+      - name: Testes de integração (e2e)
+        run: npm run test:e2e
+
+      - name: Publicar relatório de cobertura
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # `secrets` não pode ser usado em `if:`; este passo só informa se o token
+      # existe, sem expô-lo aos demais passos.
+      - name: Verificar configuração do SonarQube
+        id: sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -n "$SONAR_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=SonarQube ignorado::Configure o secret SONAR_TOKEN (e SONAR_HOST_URL, se não for SonarQube Cloud) para ativar a análise."
+          fi
+
+      - name: SonarQube scan
+        if: steps.sonar.outputs.enabled == 'true'
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
