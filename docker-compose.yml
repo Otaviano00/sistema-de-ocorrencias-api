@@ -1,0 +1,88 @@
+# Ambiente de desenvolvimento completo (db + api + web). Use via Makefile: `make up`.
+# Variáveis opcionais (com padrão) podem ser sobrescritas no .env — veja .env.example.
+name: sistema-de-ocorrencias
+
+x-dev-build-args: &dev-build-args
+  UID: ${HOST_UID:-1000}
+  GID: ${HOST_GID:-1000}
+
+services:
+  db:
+    image: postgres:16.16-alpine3.24
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-ocorrencias}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - app
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args: *dev-build-args
+    init: true
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      PRISMA_HIDE_UPDATE_MESSAGE: "true"
+      # Sobrescreve qualquer DATABASE_URL do .env (que aponta para localhost).
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-ocorrencias}?schema=public
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - .:/app
+      # node_modules do container (Linux) não é sobrescrito pelo do host.
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+    networks:
+      - app
+
+  web:
+    build:
+      context: ${WEB_DIR:-../sistema-de-ocorrencias-web}
+      dockerfile: Dockerfile.dev
+      args: *dev-build-args
+    init: true
+    ports:
+      - "${WEB_PORT:-4200}:4200"
+    volumes:
+      - ${WEB_DIR:-../sistema-de-ocorrencias-web}:/app
+      - /app/node_modules
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - app
+
+volumes:
+  db_data:
+
+networks:
+  app:

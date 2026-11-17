@@ -17,7 +17,7 @@ export class UserService {
             select: { email: true }
         });
         
-        if (user == null) {
+        if (user === null) {
             throw new Error(`User with id ${id} not found`);
         }
 
