@@ -14,7 +14,7 @@ import {AuthModule} from './auth/auth.module.js';
       headers: {'User-Agent': 'zelar-api/1.0'},
       timeout: '10s',
     }),
-    AuthModule
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
