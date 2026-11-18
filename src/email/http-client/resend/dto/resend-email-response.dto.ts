@@ -1,3 +1,3 @@
 export class ResendEmailResponseDTO {
-    id: string;
+  id: string;
 }

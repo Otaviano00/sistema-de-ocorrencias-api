@@ -1,8 +1,8 @@
-import { Test } from '@nestjs/testing';
-import { vi, type Mock } from 'vitest';
-import { NotificationService } from './notification.service.js';
-import { UserService } from '../user/user.service.js';
-import { EmailService } from '../email/email.service.js';
+import {Test} from '@nestjs/testing';
+import {vi, type Mock} from 'vitest';
+import {NotificationService} from './notification.service.js';
+import {UserService} from '../user/user.service.js';
+import {EmailService} from '../email/email.service.js';
 
 describe('NotificationService', () => {
   let service: NotificationService;
@@ -27,8 +27,8 @@ describe('NotificationService', () => {
     const module = await Test.createTestingModule({
       providers: [
         NotificationService,
-        { provide: UserService, useValue: userService },
-        { provide: EmailService, useValue: emailService },
+        {provide: UserService, useValue: userService},
+        {provide: EmailService, useValue: emailService},
       ],
     }).compile();
 
@@ -49,5 +49,4 @@ describe('NotificationService', () => {
       'Ocorrência atualizada',
     );
   });
-
 });

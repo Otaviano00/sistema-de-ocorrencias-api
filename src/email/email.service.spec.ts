@@ -1,10 +1,19 @@
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { Test, TestingModule } from '@nestjs/testing';
-import { http, HttpResponse } from 'msw';
-import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EmailModule } from './email.module.js';
-import { EmailService } from './email.service.js';
+import {ConfigModule, ConfigService} from '@nestjs/config';
+import {Test, TestingModule} from '@nestjs/testing';
+import {http, HttpResponse} from 'msw';
+import {setupServer} from 'msw/node';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
+import {EmailModule} from './email.module.js';
+import {EmailService} from './email.service.js';
 
 const RESEND_URL = 'https://resend.test';
 
@@ -26,7 +35,7 @@ describe('EmailService', () => {
     get: vi.fn((_key: string, defaultValue: unknown) => defaultValue),
   };
 
-  beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+  beforeAll(() => server.listen({onUnhandledRequest: 'error'}));
   afterEach(async () => {
     await module.close();
     server.resetHandlers();
@@ -36,7 +45,10 @@ describe('EmailService', () => {
 
   beforeEach(async () => {
     module = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }), EmailModule],
+      imports: [
+        ConfigModule.forRoot({isGlobal: true, ignoreEnvFile: true}),
+        EmailModule,
+      ],
     })
       .overrideProvider(ConfigService)
       .useValue(configServiceMock)
@@ -50,10 +62,10 @@ describe('EmailService', () => {
     let requestBody: unknown;
 
     server.use(
-      http.post(`${RESEND_URL}/emails`, async ({ request }) => {
+      http.post(`${RESEND_URL}/emails`, async ({request}) => {
         requestKeys.push(request.headers.get('Idempotency-Key') ?? '');
         requestBody = await request.json();
-        return HttpResponse.json({ id: 'email-123' });
+        return HttpResponse.json({id: 'email-123'});
       }),
     );
 
@@ -77,9 +89,9 @@ describe('EmailService', () => {
     let requestKey = '';
 
     server.use(
-      http.post(`${RESEND_URL}/emails`, ({ request }) => {
+      http.post(`${RESEND_URL}/emails`, ({request}) => {
         requestKey = request.headers.get('Idempotency-Key') ?? '';
-        return HttpResponse.json({ id: 'email-123' });
+        return HttpResponse.json({id: 'email-123'});
       }),
     );
 
@@ -94,16 +106,21 @@ describe('EmailService', () => {
     let attempts = 0;
 
     server.use(
-      http.post(`${RESEND_URL}/emails`, ({ request }) => {
+      http.post(`${RESEND_URL}/emails`, ({request}) => {
         attempts += 1;
         requestKeys.push(request.headers.get('Idempotency-Key') ?? '');
         return attempts === 1
-          ? new HttpResponse(null, { status: 503 })
-          : HttpResponse.json({ id: 'email-123' });
+          ? new HttpResponse(null, {status: 503})
+          : HttpResponse.json({id: 'email-123'});
       }),
     );
 
-    await service.sendEmail('user@example.com', 'Subject', '<p>Body</p>', 'occurrence-42-email');
+    await service.sendEmail(
+      'user@example.com',
+      'Subject',
+      '<p>Body</p>',
+      'occurrence-42-email',
+    );
 
     expect(attempts).toBe(2);
     expect(requestKeys).toEqual(['occurrence-42-email', 'occurrence-42-email']);
@@ -115,11 +132,13 @@ describe('EmailService', () => {
     server.use(
       http.post(`${RESEND_URL}/emails`, () => {
         attempts += 1;
-        return HttpResponse.json({ message: 'invalid recipient' }, { status: 400 });
+        return HttpResponse.json({message: 'invalid recipient'}, {status: 400});
       }),
     );
 
-    await expect(service.sendEmail('invalid', 'Subject', '<p>Body</p>')).rejects.toThrow();
+    await expect(
+      service.sendEmail('invalid', 'Subject', '<p>Body</p>'),
+    ).rejects.toThrow();
     expect(attempts).toBe(1);
   });
 
@@ -128,11 +147,13 @@ describe('EmailService', () => {
     server.use(
       http.post(`${RESEND_URL}/emails`, () => {
         attempts += 1;
-        return new HttpResponse(null, { status: 503 });
+        return new HttpResponse(null, {status: 503});
       }),
     );
 
-    await expect(service.sendEmail('user@example.com', 'Subject', '<p>Body</p>')).rejects.toThrow();
+    await expect(
+      service.sendEmail('user@example.com', 'Subject', '<p>Body</p>'),
+    ).rejects.toThrow();
     expect(attempts).toBe(3);
   });
 });
