@@ -29,5 +29,5 @@ export type MapLookupErrorCode =
 
 /** Expected failures are explicit; partial addresses remain successful lookups. */
 export type MapLookupResult =
-  | { success: true; location: GeographicLocation }
-  | { success: false; code: MapLookupErrorCode };
+  | {success: true; location: GeographicLocation}
+  | {success: false; code: MapLookupErrorCode};

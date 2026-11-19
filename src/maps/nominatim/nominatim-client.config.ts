@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {Injectable} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import type {
   HttpClientFactoryOptions,
   HttpClientOptionsFactory,
@@ -28,7 +28,7 @@ export class NominatimClientConfig implements HttpClientOptionsFactory {
     }
     return {
       baseUrl: this.config.getOrThrow<string>('NOMINATIM_API_URL'),
-      headers: { 'User-Agent': userAgent },
+      headers: {'User-Agent': userAgent},
       timeout,
       retry: false,
       redirect: 'error',

@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import {Injectable} from '@nestjs/common';
 import {
   HttpClient,
   HttpClientError,
   HttpResponseError,
   InjectHttpClient,
 } from '@nestjs/http-client';
-import { MapProvider } from '../map.provider.js';
+import {MapProvider} from '../map.provider.js';
 import type {
   Coordinates,
   MapLookupResult,
@@ -42,12 +42,12 @@ function neighborhood(
   const nearby = text(address.neighbourhood);
   if (suburb && nearby && suburb.toLowerCase() !== nearby.toLowerCase())
     return null;
-  if (suburb) return { name: suburb, sourceField: 'suburb' };
-  return nearby ? { name: nearby, sourceField: 'neighbourhood' } : null;
+  if (suburb) return {name: suburb, sourceField: 'suburb'};
+  return nearby ? {name: nearby, sourceField: 'neighbourhood'} : null;
 }
 
 function normalize(data: unknown, coordinates: Coordinates): MapLookupResult {
-  if (isNotFound(data)) return { success: false, code: 'LOCATION_NOT_FOUND' };
+  if (isNotFound(data)) return {success: false, code: 'LOCATION_NOT_FOUND'};
   if (
     !isRecord(data) ||
     'error' in data ||
@@ -55,13 +55,13 @@ function normalize(data: unknown, coordinates: Coordinates): MapLookupResult {
     !validCoordinate(data.lon, 180) ||
     (data.address !== undefined && !isRecord(data.address))
   ) {
-    return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
+    return {success: false, code: 'MAP_PROVIDER_UNAVAILABLE'};
   }
   const address = isRecord(data.address) ? data.address : {};
   return {
     success: true,
     location: {
-      coordinates: { ...coordinates },
+      coordinates: {...coordinates},
       provider: 'nominatim',
       displayAddress: text(data.display_name),
       neighborhood: neighborhood(address),
@@ -90,7 +90,7 @@ export class NominatimProvider extends MapProvider {
 
   async reverseGeocode(coordinates: Coordinates): Promise<MapLookupResult> {
     if (this.busy || Date.now() < this.nextRequestAt)
-      return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
+      return {success: false, code: 'MAP_PROVIDER_UNAVAILABLE'};
     this.busy = true;
     this.nextRequestAt = Date.now() + REQUEST_INTERVAL_MS;
     try {
@@ -110,13 +110,13 @@ export class NominatimProvider extends MapProvider {
     } catch (error) {
       if (error instanceof HttpResponseError) {
         if (error.status === 404 && isNotFound(error.body)) {
-          return { success: false, code: 'LOCATION_NOT_FOUND' };
+          return {success: false, code: 'LOCATION_NOT_FOUND'};
         }
         if ([403, 429, 503].includes(error.status))
           this.applyCooldown(error.headers);
       }
       if (error instanceof HttpClientError)
-        return { success: false, code: 'MAP_PROVIDER_UNAVAILABLE' };
+        return {success: false, code: 'MAP_PROVIDER_UNAVAILABLE'};
       throw error;
     } finally {
       this.busy = false;
