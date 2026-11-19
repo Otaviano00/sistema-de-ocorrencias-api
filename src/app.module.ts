@@ -4,6 +4,7 @@ import {AppController} from './app.controller.js';
 import {AppService} from './app.service.js';
 import {PrismaModule} from './prisma/prisma.module.js';
 import {HttpClientModule} from '@nestjs/http-client';
+import {AuthModule} from './auth/auth.module.js';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import {HttpClientModule} from '@nestjs/http-client';
       headers: {'User-Agent': 'zelar-api/1.0'},
       timeout: '10s',
     }),
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
