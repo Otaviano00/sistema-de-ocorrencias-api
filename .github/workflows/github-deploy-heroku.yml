@@ -1,0 +1,89 @@
+name: Deploy API to Heroku
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment de destino'
+        required: true
+        default: 'PRD'
+        type: choice
+        options:
+          - PRD
+      branch:
+        description: 'Branch para fazer o deploy'
+        required: true
+        default: 'main'
+        type: string
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment || 'PRD' }}
+      url: ${{ vars.APP_URL || 'https://api.otav.com.br' }}
+
+    env:
+      HEROKU_APP_NAME: ${{ vars.HEROKU_APP_NAME }}
+      IMAGE_TAG: registry.heroku.com/${{ vars.HEROKU_APP_NAME }}/web
+
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Configure Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build with Cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
+          load: true
+          tags: ${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          
+      - name: Push & Release on Heroku
+        run: |
+          # 1. Envia a imagem convertida para Docker V2 Schema 2
+          skopeo copy --format v2s2 \
+            --dest-creds="_:${{ secrets.HEROKU_API_KEY }}" \
+            docker-daemon:${{ env.IMAGE_TAG }}:latest \
+            docker://${{ env.IMAGE_TAG }}:latest
+
+          # 2. Lê o digest exato da configuração que ficou registrada no Heroku
+          IMAGE_ID=$(skopeo inspect --config \
+            --creds="_:${{ secrets.HEROKU_API_KEY }}" \
+            docker://${{ env.IMAGE_TAG }}:latest | jq -r '.config // empty' > /dev/null; \
+            skopeo inspect --raw \
+            --creds="_:${{ secrets.HEROKU_API_KEY }}" \
+            docker://${{ env.IMAGE_TAG }}:latest | jq -r '.config.digest')
+
+          if [ -z "$IMAGE_ID" ] || [ "$IMAGE_ID" = "null" ]; then
+            echo "Erro: Não foi possível obter o digest da imagem no registry do Heroku."
+            exit 1
+          fi
+
+          echo "Liberando imagem: $IMAGE_ID"
+
+          # 3. Faz o release usando o digest validado
+          curl --fail-with-body --show-error -X PATCH https://api.heroku.com/apps/${{ env.HEROKU_APP_NAME }}/formation \
+            -d "{
+              \"updates\": [
+                {
+                  \"type\": \"web\",
+                  \"docker_image\": \"$IMAGE_ID\"
+                }
+              ]
+            }" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/vnd.heroku+json; version=3.docker-releases" \
+            -H "Authorization: Bearer ${{ secrets.HEROKU_API_KEY }}"

@@ -1,163 +1,215 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-import "dotenv-expand/config";
-import { PrismaClient } from "../src/generated/prisma/client.js";
+import {PrismaPg} from '@prisma/adapter-pg';
+import 'dotenv-expand/config';
+import {Prisma, PrismaClient} from '../src/generated/prisma/client.js';
+
+// Seed idempotente: só popula o banco quando ele está vazio, então pode rodar a
+// cada restart do container sem duplicar dados. Use `--force` (ou SEED_FORCE=true)
+// para apagar tudo e recriar: `npm run seed -- --force`.
+
+type Db = Prisma.TransactionClient;
+type Ref = {id: number};
 
 const adapter = new PrismaPg({
-    connectionString: process.env["DATABASE_URL"],
+  connectionString: process.env['DATABASE_URL'],
 });
 
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient({adapter});
 
-async function clearDatabase() {
-    console.log("Limpando o banco de dados...");
-    await prisma.followUp.deleteMany();
-    await prisma.occurrence.deleteMany();
-    await prisma.category.deleteMany();
-    await prisma.region.deleteMany();
-    await prisma.user.deleteMany();
+const force =
+  process.argv.includes('--force') || process.env['SEED_FORCE'] === 'true';
+
+async function isDatabaseEmpty(db: Db) {
+  const [users, occurrences] = await Promise.all([
+    db.user.count(),
+    db.occurrence.count(),
+  ]);
+  return users === 0 && occurrences === 0;
 }
 
-async function seedUsers() {
-    console.log("Criando usuarios...");
-    
-    const defaultPasswordHash = "$scrypt$ln=17,r=8,p=1$iIdYpVzpl+g0OgZq0tDKTw$vwRKyr9NmIOx4y12lSuLy0mAa4R7Hl/C2iGyFOZ8axU"; //pwd 
-
-    const adminUser = await prisma.user.create({
-        data: {
-            name: "Administrador do Sistema",
-            email: "admin@sistema.df.gov.br",
-            passwordHash: defaultPasswordHash,
-            role: "ADMIN",
-        },
-    });
-
-    const moderatorUser = await prisma.user.create({
-        data: {
-            name: "Moderador de Ocorrencias",
-            email: "moderador@sistema.df.gov.br",
-            passwordHash: defaultPasswordHash,
-            role: "MODERATOR",
-        },
-    });
-
-    const citizenUser = await prisma.user.create({
-        data: {
-            name: "Cidadao Brasiliense",
-            email: "cidadao@exemplo.com",
-            passwordHash: defaultPasswordHash,
-            role: "CITIZEN",
-        },
-    });
-
-    return { adminUser, moderatorUser, citizenUser };
+async function clearDatabase(db: Db) {
+  console.log('Limpando o banco de dados...');
+  await db.followUp.deleteMany();
+  await db.occurrence.deleteMany();
+  await db.category.deleteMany();
+  await db.region.deleteMany();
+  await db.user.deleteMany();
 }
 
-async function seedRegions() {
-    console.log("Criando regioes do DF...");
-    
-    const planoPiloto = await prisma.region.create({ 
-        data: { name: "Plano Piloto", isActive: true } 
-    });
-    const taguatinga = await prisma.region.create({ 
-        data: { name: "Taguatinga", isActive: true } 
-    });
-    const ceilandia = await prisma.region.create({ 
-        data: { name: "Ceilandia", isActive: false } 
-    });
+async function seedUsers(db: Db) {
+  console.log('Criando usuarios...');
 
-    return { planoPiloto, taguatinga, ceilandia };
+  const defaultPasswordHash =
+    '$2b$10$4uQMaoEtvykEFwcu6eMm8uonu09LpWkdp59mkXyYzosuNEWGdC/o6'; //pwd
+
+  const adminUser = await db.user.create({
+    data: {
+      name: 'Administrador do Sistema',
+      email: 'admin@sistema.df.gov.br',
+      passwordHash: defaultPasswordHash,
+      role: 'ADMIN',
+    },
+  });
+
+  const moderatorUser = await db.user.create({
+    data: {
+      name: 'Moderador de Ocorrencias',
+      email: 'moderador@sistema.df.gov.br',
+      passwordHash: defaultPasswordHash,
+      role: 'MODERATOR',
+    },
+  });
+
+  const citizenUser = await db.user.create({
+    data: {
+      name: 'Cidadao Brasiliense',
+      email: 'cidadao@exemplo.com',
+      passwordHash: defaultPasswordHash,
+      role: 'CITIZEN',
+    },
+  });
+
+  return {adminUser, moderatorUser, citizenUser};
 }
 
-async function seedCategories() {
-    console.log("Criando categorias...");
-    
-    const pothole = await prisma.category.create({ 
-        data: { name: "Buraco na Via", isActive: true } 
-    });
-    const lighting = await prisma.category.create({ 
-        data: { name: "Iluminacao Publica", isActive: true } 
-    });
-    const trash = await prisma.category.create({ 
-        data: { name: "Acumulo de Lixo", isActive: true } 
-    });
+async function seedRegions(db: Db) {
+  console.log('Criando regioes do DF...');
 
-    return { pothole, lighting, trash };
+  const planoPiloto = await db.region.create({
+    data: {name: 'Plano Piloto', isActive: true},
+  });
+  const taguatinga = await db.region.create({
+    data: {name: 'Taguatinga', isActive: true},
+  });
+  const ceilandia = await db.region.create({
+    data: {name: 'Ceilandia', isActive: false},
+  });
+
+  return {planoPiloto, taguatinga, ceilandia};
 }
 
-async function seedOccurrences(userId: number, regions: Record<string, {id: number}>, categories: Record<string, {id: number}>) {
-    console.log("Criando ocorrencias...");
-    
-    const firstOccurrence = await prisma.occurrence.create({
-        data: {
-            status: "PENDING",
-            description: "Buraco muito grande no Eixo Monumental, causando danos aos veiculos.",
-            latitude: -15.7942287,
-            longitude: -47.8821658,
-            createdBy: userId,
-            categoryId: categories.pothole.id,
-            regionId: regions.planoPiloto.id,
-        },
-    });
+async function seedCategories(db: Db) {
+  console.log('Criando categorias...');
 
-    const secondOccurrence = await prisma.occurrence.create({
-        data: {
-            status: "CONCLUDED",
-            description: "Poste sem luz na Comercial Norte ha duas semanas.",
-            latitude: -15.833537,
-            longitude: -48.056637,
-            createdBy: userId,
-            categoryId: categories.lighting.id,
-            regionId: regions.taguatinga.id,
-        },
-    });
+  const pothole = await db.category.create({
+    data: {name: 'Buraco na Via', isActive: true},
+  });
+  const lighting = await db.category.create({
+    data: {name: 'Iluminacao Publica', isActive: true},
+  });
+  const trash = await db.category.create({
+    data: {name: 'Acumulo de Lixo', isActive: true},
+  });
 
-    return { firstOccurrence, secondOccurrence };
+  return {pothole, lighting, trash};
 }
 
-async function seedFollowUps(users: Record<string, {id: number}>, regions: Record<string, {id: number}>, categories: Record<string, {id: number}>, occurrences: Record<string, {id: number}>) {
-    console.log("Criando acompanhamentos e monitoramentos...");
+async function seedOccurrences(
+  db: Db,
+  userId: number,
+  regions: Record<string, Ref>,
+  categories: Record<string, Ref>,
+) {
+  console.log('Criando ocorrencias...');
 
-    await prisma.followUp.create({
-        data: {
-            userId: users.citizenUser.id,
-            regionId: regions.planoPiloto.id,
-        }
-    });
+  const firstOccurrence = await db.occurrence.create({
+    data: {
+      status: 'PENDING',
+      description:
+        'Buraco muito grande no Eixo Monumental, causando danos aos veiculos.',
+      latitude: -15.7942287,
+      longitude: -47.8821658,
+      createdBy: userId,
+      categoryId: categories.pothole.id,
+      regionId: regions.planoPiloto.id,
+    },
+  });
 
-    await prisma.followUp.create({
-        data: {
-            userId: users.citizenUser.id,
-            categoryId: categories.pothole.id,
-        }
-    });
+  const secondOccurrence = await db.occurrence.create({
+    data: {
+      status: 'CONCLUDED',
+      description: 'Poste sem luz na Comercial Norte ha duas semanas.',
+      latitude: -15.833537,
+      longitude: -48.056637,
+      createdBy: userId,
+      categoryId: categories.lighting.id,
+      regionId: regions.taguatinga.id,
+    },
+  });
 
-    await prisma.followUp.create({
-        data: {
-            userId: users.moderatorUser.id,
-            occurrenceId: occurrences.firstOccurrence.id,
-        }
-    });
+  return {firstOccurrence, secondOccurrence};
+}
+
+async function seedFollowUps(
+  db: Db,
+  users: Record<string, Ref>,
+  regions: Record<string, Ref>,
+  categories: Record<string, Ref>,
+  occurrences: Record<string, Ref>,
+) {
+  console.log('Criando acompanhamentos e monitoramentos...');
+
+  await db.followUp.create({
+    data: {
+      userId: users.citizenUser.id,
+      regionId: regions.planoPiloto.id,
+    },
+  });
+
+  await db.followUp.create({
+    data: {
+      userId: users.citizenUser.id,
+      categoryId: categories.pothole.id,
+    },
+  });
+
+  await db.followUp.create({
+    data: {
+      userId: users.moderatorUser.id,
+      occurrenceId: occurrences.firstOccurrence.id,
+    },
+  });
 }
 
 async function main() {
-    console.log("Iniciando Seed do Banco de Dados...");
+  console.log('Iniciando Seed do Banco de Dados...');
 
-    await clearDatabase();
+  // Tudo numa transação: uma falha no meio não deixa dados parciais que fariam
+  // as próximas execuções pularem a seed por acharem o banco "populado".
+  const seeded = await prisma.$transaction(
+    async db => {
+      if (force) {
+        await clearDatabase(db);
+      } else if (!(await isDatabaseEmpty(db))) {
+        return false;
+      }
 
-    const users = await seedUsers();
-    const regions = await seedRegions();
-    const categories = await seedCategories();
-    const occurrences = await seedOccurrences(users.citizenUser.id, regions, categories);
-    await seedFollowUps(users, regions, categories, occurrences);
+      const users = await seedUsers(db);
+      const regions = await seedRegions(db);
+      const categories = await seedCategories(db);
+      const occurrences = await seedOccurrences(
+        db,
+        users.citizenUser.id,
+        regions,
+        categories,
+      );
+      await seedFollowUps(db, users, regions, categories, occurrences);
+      return true;
+    },
+    {timeout: 30_000},
+  );
 
-    console.log("Seed finalizada com sucesso!");
+  console.log(
+    seeded
+      ? 'Seed finalizada com sucesso!'
+      : 'Banco ja populado: seed ignorada (use --force para recriar).',
+  );
 }
 
 main()
-    .catch(e => {
-        console.error("Erro ao executar a seed:", e);
-        process.exit(1);
-    })
-    .finally(async () => {
-        await prisma.$disconnect();
-    });
+  .catch(e => {
+    console.error('Erro ao executar a seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
