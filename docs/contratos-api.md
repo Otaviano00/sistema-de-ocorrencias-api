@@ -1,3 +1,31 @@
+# Contrato de categorias - HU06.1
+
+## Consultar categorias
+
+`GET /categories` é público e retorna todas as categorias, inclusive inativas,
+ordenadas por nome. O formato de cada item é:
+
+```json
+{"id": 1, "name": "Iluminação", "isActive": true}
+```
+
+## Criar e modificar categorias
+
+- `POST /categories` cria uma categoria ativa (`isActive: true`).
+- `PATCH /categories/:id` modifica somente o nome da categoria.
+- Ambas as operações exigem um token JWT com papel `ADMIN`.
+
+Request body:
+
+```json
+{"name": "Iluminação"}
+```
+
+`name` é uma string obrigatória, não vazia após remoção de espaços nas extremas,
+com no máximo 100 caracteres. A criação e a alteração removem esses espaços
+antes de persistir. Um identificador inexistente em `PATCH` retorna HTTP 404.
+Campos adicionais são rejeitados pela validação global.
+
 # Contrato de mapas — BASE-MAPA
 
 O `MapsModule` exporta `MapasService`, que usa o `MapProvider` injetável.
