@@ -13,11 +13,6 @@ on:
         type: choice
         options:
           - PRD
-      branch:
-        description: 'Branch para fazer o deploy'
-        required: true
-        default: 'main'
-        type: string
 
 jobs:
   build-and-deploy:
