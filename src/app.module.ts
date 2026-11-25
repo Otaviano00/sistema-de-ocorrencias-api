@@ -6,6 +6,7 @@ import {PrismaModule} from './prisma/prisma.module.js';
 import {HttpClientModule} from '@nestjs/http-client';
 import {AuthModule} from './auth/auth.module.js';
 import {CategoriesModule} from './categories/categories.module.js';
+import {RegionsModule} from './regions/regions.module.js';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import {CategoriesModule} from './categories/categories.module.js';
     }),
     AuthModule,
     CategoriesModule,
+    RegionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -109,6 +109,52 @@ describe('Nominatim integration', () => {
     });
   });
 
+  it('searches recognized neighborhoods with stable geographic context', async () => {
+    let requestedUrl: URL | undefined;
+    server.use(
+      http.get('https://nominatim.test/search', ({request}) => {
+        requestedUrl = new URL(request.url);
+        return HttpResponse.json([
+          {
+            place_id: 123,
+            name: 'Asa Norte',
+            address: {
+              suburb: 'Asa Norte',
+              city: 'Brasília',
+              state: 'Distrito Federal',
+            },
+          },
+          {place_id: 456, address: {city: 'Sem bairro'}},
+        ]);
+      }),
+    );
+
+    await expect(service.searchRegions('Asa Norte')).resolves.toEqual([
+      {
+        providerId: '123',
+        name: 'Asa Norte',
+        municipality: 'Brasília',
+        state: 'Distrito Federal',
+      },
+    ]);
+    expect(Object.fromEntries(requestedUrl!.searchParams)).toMatchObject({
+      q: 'Asa Norte',
+      countrycodes: 'br',
+      addressdetails: '1',
+    });
+  });
+
+  it('reports region search provider failures', async () => {
+    server.use(
+      http.get('https://nominatim.test/search', () =>
+        HttpResponse.json({}, {status: 503}),
+      ),
+    );
+    await expect(service.searchRegions('Asa Norte')).rejects.toMatchObject({
+      status: 503,
+    });
+  });
+
   it.each([
     [
       {lat: '0', lon: '0'},

@@ -1,4 +1,4 @@
-import {Injectable} from '@nestjs/common';
+import {Inject, Injectable, ServiceUnavailableException} from '@nestjs/common';
 import {
   HttpClient,
   HttpClientError,
@@ -10,6 +10,7 @@ import type {
   Coordinates,
   MapLookupResult,
   NeighborhoodCandidate,
+  RecognizedRegion,
 } from '../maps.contract.js';
 
 const REQUEST_INTERVAL_MS = 1100;
@@ -84,8 +85,67 @@ export class NominatimProvider extends MapProvider {
 
   constructor(
     @InjectHttpClient('nominatim') private readonly client: HttpClient,
+    @Inject('NOMINATIM_SEARCH_URL') private readonly searchUrl: string,
   ) {
     super();
+  }
+
+  async searchRegions(query: string): Promise<RecognizedRegion[]> {
+    if (this.busy || Date.now() < this.nextRequestAt) {
+      throw new ServiceUnavailableException('API de mapas indisponível.');
+    }
+    this.busy = true;
+    this.nextRequestAt = Date.now() + REQUEST_INTERVAL_MS;
+    try {
+      const url = new URL(this.searchUrl);
+      url.pathname = '/search';
+      const response = await this.client.get<unknown>(url.toString(), {
+        responseType: 'json',
+        query: {
+          q: query,
+          format: 'jsonv2',
+          addressdetails: 1,
+          'accept-language': 'pt-BR',
+          countrycodes: 'br',
+          limit: 8,
+          featuretype: 'settlement',
+        },
+      });
+      if (!Array.isArray(response.data)) return [];
+      return response.data.flatMap(item => {
+        if (!isRecord(item) || !isRecord(item.address)) return [];
+        const name =
+          text(item.address.suburb) ??
+          text(item.address.neighbourhood) ??
+          text(item.name);
+        const providerId =
+          typeof item.place_id === 'number' || typeof item.place_id === 'string'
+            ? String(item.place_id)
+            : null;
+        if (!providerId || !name) return [];
+        return [
+          {
+            providerId,
+            name,
+            municipality:
+              text(item.address.city) ??
+              text(item.address.town) ??
+              text(item.address.municipality),
+            state: text(item.address.state),
+          },
+        ];
+      });
+    } catch (error) {
+      if (
+        error instanceof HttpResponseError ||
+        error instanceof HttpClientError
+      ) {
+        throw new ServiceUnavailableException('API de mapas indisponível.');
+      }
+      throw error;
+    } finally {
+      this.busy = false;
+    }
   }
 
   async reverseGeocode(coordinates: Coordinates): Promise<MapLookupResult> {

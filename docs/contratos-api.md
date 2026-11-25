@@ -139,6 +139,20 @@ npm run build
 npm run lint
 ```
 
+## Regiões administrativas
+
+- `GET /regions`: público; retorna regiões persistidas, ativas e inativas.
+- `GET /regions/search?q=...`: somente administrador; consulta Nominatim e retorna
+  apenas bairros reconhecidos com `providerId`, nome, município e estado.
+- `POST /regions`: somente administrador; ativa um candidato obtido na busca,
+  persistindo seu `providerId` e contexto geográfico validados por formato.
+- `PATCH /regions/:id`: somente administrador; corpo `{ "isActive": boolean }`
+  para ativar ou desativar sem apagar ocorrências existentes.
+
+A chave estável do provedor é persistida em `provider_id`; município e estado
+impedem que bairros homônimos sejam tratados como a mesma região de atendimento.
+
 Os testes usam mocks e MSW, sem Nominatim real ou banco. Referências:
-[reverse](https://nominatim.org/release-docs/latest/api/Reverse/) e
+[reverse](https://nominatim.org/release-docs/latest/api/Reverse/),
+[search](https://nominatim.org/release-docs/latest/api/Search/) e
 [formatos e identificadores](https://nominatim.org/release-docs/latest/api/Output/).
