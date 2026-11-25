@@ -22,7 +22,12 @@ import {NominatimProvider} from './nominatim/nominatim.provider.js';
       provide: 'NOMINATIM_SEARCH_URL',
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const url = new URL(config.getOrThrow<string>('NOMINATIM_API_URL'));
+        const url = new URL(
+          config.get<string>(
+            'NOMINATIM_API_URL',
+            'https://nominatim.openstreetmap.org/reverse',
+          ),
+        );
         url.pathname = '/search';
         return url.toString();
       },
