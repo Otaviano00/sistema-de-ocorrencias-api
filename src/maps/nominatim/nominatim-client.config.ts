@@ -11,7 +11,10 @@ export class NominatimClientConfig implements HttpClientOptionsFactory {
 
   createHttpClientOptions(): HttpClientFactoryOptions {
     const userAgent = this.config
-      .getOrThrow<string>('NOMINATIM_USER_AGENT')
+      .get<string>(
+        'NOMINATIM_USER_AGENT',
+        'zelar-api/1.0 (https://github.com/Otaviano00/sistema-de-ocorrencias-api)',
+      )
       .trim();
     if (!userAgent || /[\r\n]/.test(userAgent)) {
       throw new Error(
@@ -27,7 +30,10 @@ export class NominatimClientConfig implements HttpClientOptionsFactory {
       );
     }
     return {
-      baseUrl: this.config.getOrThrow<string>('NOMINATIM_API_URL'),
+      baseUrl: this.config.get<string>(
+        'NOMINATIM_API_URL',
+        'https://nominatim.openstreetmap.org/reverse',
+      ),
       headers: {'User-Agent': userAgent},
       timeout,
       retry: false,

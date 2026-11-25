@@ -30,6 +30,14 @@ describe('NominatimClientConfig', () => {
     },
   );
 
+  it('uses safe public defaults when map environment is absent', () => {
+    const options = new NominatimClientConfig(
+      new ConfigService({}),
+    ).createHttpClientOptions();
+    expect(options.baseUrl).toBe('https://nominatim.openstreetmap.org/reverse');
+    expect(options.headers?.['User-Agent']).toContain('zelar-api');
+  });
+
   it.each([
     {NOMINATIM_USER_AGENT: ' '},
     {NOMINATIM_USER_AGENT: 'agent\r\nHeader: value'},
