@@ -12,9 +12,6 @@ export class EmailService {
     private readonly config: ConfigService,
   ) {}
 
-  /**
-   * Pass a stable key to deduplicate the same logical email across separate calls.
-   */
   async sendEmail(
     to: string,
     subject: string,

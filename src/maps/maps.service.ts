@@ -1,5 +1,5 @@
 import {Injectable} from '@nestjs/common';
-import {MapProvider} from './map.provider.js';
+import {MapProvider} from './maps.provider.js';
 import type {
   Coordinates,
   MapLookupResult,
@@ -30,11 +30,14 @@ export class MapasService {
       Math.abs(coordinates.latitude) > 90 ||
       Math.abs(coordinates.longitude) > 180
     ) {
-      return {success: false, code: 'INVALID_COORDINATES'};
+      throw new Error('Invalid coordinates');
     }
+
     const key = `${coordinates.latitude},${coordinates.longitude}`;
     const cached = this.cache.get(key);
+
     if (cached && cached.expiresAt > Date.now()) return cached.result;
+
     this.cache.delete(key);
     const result = await this.provider.reverseGeocode(coordinates);
     if (result.success) {

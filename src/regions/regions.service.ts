@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {MapasService} from '../maps/mapas.service.js';
+import {MapasService} from '../maps/maps.service.js';
 import {PrismaService} from '../prisma/prisma.service.js';
 import {ActivateRegionDto} from './dto/region.dto.js';
 

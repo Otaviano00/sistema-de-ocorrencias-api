@@ -1,8 +1,8 @@
 import {Module} from '@nestjs/common';
-import {ConfigModule, ConfigService} from '@nestjs/config';
+import {ConfigModule} from '@nestjs/config';
 import {HttpClientModule} from '@nestjs/http-client';
-import {MapProvider} from './map.provider.js';
-import {MapasService} from './mapas.service.js';
+import {MapProvider} from './maps.provider.js';
+import {MapasService} from './maps.service.js';
 import {NominatimClientConfig} from './nominatim/nominatim-client.config.js';
 import {NominatimProvider} from './nominatim/nominatim.provider.js';
 
@@ -15,23 +15,8 @@ import {NominatimProvider} from './nominatim/nominatim.provider.js';
     }),
   ],
   providers: [
-    ConfigService,
     MapasService,
     NominatimProvider,
-    {
-      provide: 'NOMINATIM_SEARCH_URL',
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const url = new URL(
-          config.get<string>(
-            'NOMINATIM_API_URL',
-            'https://nominatim.openstreetmap.org/reverse',
-          ),
-        );
-        url.pathname = '/search';
-        return url.toString();
-      },
-    },
     {provide: MapProvider, useExisting: NominatimProvider},
   ],
   exports: [MapasService],

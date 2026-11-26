@@ -1,6 +1,6 @@
 import {NotFoundException} from '@nestjs/common';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {MapasService} from '../maps/mapas.service.js';
+import {MapasService} from '../maps/maps.service.js';
 import {PrismaService} from '../prisma/prisma.service.js';
 import {RegionsService} from './regions.service.js';
 
