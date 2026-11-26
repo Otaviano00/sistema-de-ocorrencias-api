@@ -113,6 +113,7 @@ async function seedOccurrences(
 
   const firstOccurrence = await db.occurrence.create({
     data: {
+      title: 'Buraco grande no Eixo Monumental',
       status: 'PENDING',
       description:
         'Buraco muito grande no Eixo Monumental, causando danos aos veiculos.',
@@ -126,6 +127,7 @@ async function seedOccurrences(
 
   const secondOccurrence = await db.occurrence.create({
     data: {
+      title: 'Poste apagado na Comercial Norte',
       status: 'CONCLUDED',
       description: 'Poste sem luz na Comercial Norte ha duas semanas.',
       latitude: -15.833537,

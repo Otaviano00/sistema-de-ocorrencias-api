@@ -5,6 +5,7 @@ import {AppService} from './app.service.js';
 import {PrismaModule} from './prisma/prisma.module.js';
 import {HttpClientModule} from '@nestjs/http-client';
 import {AuthModule} from './auth/auth.module.js';
+import {CategoriesModule} from './categories/categories.module.js';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import {AuthModule} from './auth/auth.module.js';
       timeout: '10s',
     }),
     AuthModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
