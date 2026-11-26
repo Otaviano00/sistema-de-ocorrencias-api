@@ -1,6 +1,10 @@
 import {Injectable} from '@nestjs/common';
-import {MapProvider} from './map.provider.js';
-import type {Coordinates, MapLookupResult} from './maps.contract.js';
+import {MapProvider} from './maps.provider.js';
+import type {
+  Coordinates,
+  MapLookupResult,
+  RecognizedRegion,
+} from './maps.contract.js';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 1000;
@@ -14,6 +18,10 @@ export class MapasService {
 
   constructor(private readonly provider: MapProvider) {}
 
+  searchRegions(query: string): Promise<RecognizedRegion[]> {
+    return this.provider.searchRegions(query);
+  }
+
   async reverseGeocode(coordinates: Coordinates): Promise<MapLookupResult> {
     if (
       coordinates === null ||
@@ -22,11 +30,14 @@ export class MapasService {
       Math.abs(coordinates.latitude) > 90 ||
       Math.abs(coordinates.longitude) > 180
     ) {
-      return {success: false, code: 'INVALID_COORDINATES'};
+      throw new Error('Invalid coordinates');
     }
+
     const key = `${coordinates.latitude},${coordinates.longitude}`;
     const cached = this.cache.get(key);
+
     if (cached && cached.expiresAt > Date.now()) return cached.result;
+
     this.cache.delete(key);
     const result = await this.provider.reverseGeocode(coordinates);
     if (result.success) {

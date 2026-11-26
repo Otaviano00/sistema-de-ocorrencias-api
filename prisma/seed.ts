@@ -75,13 +75,31 @@ async function seedRegions(db: Db) {
   console.log('Criando regioes do DF...');
 
   const planoPiloto = await db.region.create({
-    data: {name: 'Plano Piloto', isActive: true},
+    data: {
+      name: 'Plano Piloto',
+      providerId: 'seed-plano-piloto',
+      municipality: 'Brasília',
+      state: 'Distrito Federal',
+      isActive: true,
+    },
   });
   const taguatinga = await db.region.create({
-    data: {name: 'Taguatinga', isActive: true},
+    data: {
+      name: 'Taguatinga',
+      providerId: 'seed-taguatinga',
+      municipality: 'Brasília',
+      state: 'Distrito Federal',
+      isActive: true,
+    },
   });
   const ceilandia = await db.region.create({
-    data: {name: 'Ceilandia', isActive: false},
+    data: {
+      name: 'Ceilandia',
+      providerId: 'seed-ceilandia',
+      municipality: 'Brasília',
+      state: 'Distrito Federal',
+      isActive: false,
+    },
   });
 
   return {planoPiloto, taguatinga, ceilandia};

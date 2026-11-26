@@ -37,9 +37,12 @@ model User {
 }
 
 model Region {
-  id          Int          @id @default(autoincrement())
-  name        String
-  isActive    Boolean      @default(true) @map("is_active")
+  id           Int          @id @default(autoincrement())
+  providerId   String?      @unique @map("provider_id")
+  name         String
+  municipality String?
+  state        String?
+  isActive     Boolean      @default(true) @map("is_active")
 
   occurrences Occurrence[]
   followUps   FollowUp[]

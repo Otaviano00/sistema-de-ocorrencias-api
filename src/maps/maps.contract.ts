@@ -11,6 +11,13 @@ export interface NeighborhoodCandidate {
   sourceField: string;
 }
 
+export interface RecognizedRegion {
+  providerId: string;
+  name: string;
+  municipality: string | null;
+  state: string | null;
+}
+
 export interface GeographicLocation {
   coordinates: Coordinates;
   provider: string;

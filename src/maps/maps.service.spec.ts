@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {MapasService} from './mapas.service.js';
+import {MapasService} from './maps.service.js';
 import type {Coordinates, MapLookupResult} from './maps.contract.js';
 
 const coordinates = {latitude: -15.7939, longitude: -47.8828};
@@ -50,7 +50,7 @@ describe('MapasService', () => {
     async input => {
       await expect(
         service.reverseGeocode(input as Coordinates),
-      ).resolves.toEqual({success: false, code: 'INVALID_COORDINATES'});
+      ).rejects.toThrow('Invalid coordinates');
       expect(provider.reverseGeocode).not.toHaveBeenCalled();
     },
   );
