@@ -138,7 +138,7 @@ async function seedOccurrences(
     },
   });
 
-  return { firstOccurrence, secondOccurrence };
+  return {firstOccurrence, secondOccurrence};
 }
 
 async function seedFollowUps(
